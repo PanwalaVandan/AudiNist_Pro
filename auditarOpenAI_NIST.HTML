@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔐 AuditNIST Pro</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script> 
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyberbg: '#0f172a',
+            cyberpanel: '#1e293b',
+            cyberaccent: '#38bdf8',
+            cyberevil: '#ef4444',
+            cyberwarn: '#facc15',
+            cyberok: '#22c55e'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-cyberbg text-gray-100 font-mono min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="container mx-auto p-4 flex justify-between items-center">
+    <h1 class="text-3xl text-cyberaccent">AuditNIST Pro</h1>
+    <button id="clear-button"
+            onclick="clearData()"
+            class="px-3 py-1 bg-cyberevil text-black rounded hover:bg-red-600">
+      Limpiar datos
+    </button>
+  </header>
+
+  <!-- API Key & Sugerir Controles -->
+  <section class="container mx-auto mt-4 bg-cyberpanel p-4 rounded-lg shadow-lg">
+    <div class="grid md:grid-cols-3 gap-4 items-end">
+      <div>
+        <label class="block font-bold text-cyberaccent">OpenAI API Key</label>
+        <input id="input-api-key" type="password" placeholder="sk-..."
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+      <div>
+        <button id="save-key" class="px-4 py-2 bg-cyberaccent text-black rounded hover:bg-blue-300">
+          Guardar API Key
+        </button>
+      </div>
+      <div>
+        <span id="key-status" class="text-sm text-cyberwarn">Clave no guardada</span>
+      </div>
+    </div>
+    <hr class="my-4 border-gray-600"/>
+    <div class="grid md:grid-cols-3 gap-4 items-end">
+      <div>
+        <label class="block font-bold text-cyberaccent">Función NIST</label>
+        <select id="nist-function" class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100">
+          <option>Identify</option>
+          <option>Protect</option>
+          <option>Detect</option>
+          <option>Respond</option>
+          <option>Recover</option>
+        </select>
+      </div>
+      <div>
+        <button id="suggest-controls" class="px-4 py-2 bg-cyberok text-black rounded hover:bg-green-400">
+          🔍 Sugerir controles
+        </button>
+      </div>
+      <div>
+        <span id="suggest-status" class="text-sm text-cyberwarn"></span>
+      </div>
+    </div>
+    <div id="suggested-controls" class="mt-4 space-y-2"></div>
+  </section>
+
+  <!-- Main Form -->
+  <main class="container mx-auto flex-1 mt-6 bg-cyberpanel p-6 rounded-lg shadow-lg">
+    <!-- Metadatos -->
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <label class="block font-bold text-cyberaccent">Empresa auditada</label>
+        <input id="empresa_auditada" type="text" placeholder="Nombre de la empresa"
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+      <div>
+        <label class="block font-bold text-cyberaccent">Empresa auditora</label>
+        <input id="empresa_auditora" type="text" placeholder="Tu consultora o SOC"
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+      <div>
+        <label class="block font-bold text-cyberaccent">Auditor responsable</label>
+        <input id="auditor" type="text" placeholder="Nombre y rol"
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+      <div>
+        <label class="block font-bold text-cyberaccent">Alcance de la auditoría</label>
+        <input id="alcance" type="text" placeholder="Sistemas, red, aplicaciones, etc."
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+      <div>
+        <label class="block font-bold text-cyberaccent">ID del informe</label>
+        <input id="id_informe" type="text" placeholder="Ej: INF-2025-001"
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+      <div>
+        <label class="block font-bold text-cyberaccent">Fecha de auditoría</label>
+        <input id="fecha" type="date"
+               class="w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"/>
+      </div>
+    </div>
+
+    <!-- Controles dinámicos -->
+    <div id="controls" class="mt-6 space-y-4"></div>
+
+    <!-- Botones principales -->
+    <div class="mt-6 flex flex-wrap gap-4">
+      <button onclick="addControl()"
+              class="px-4 py-2 bg-cyberaccent text-black rounded hover:bg-blue-300">
+        + Añadir Control
+      </button>
+      <button onclick="generatePDF()"
+              class="px-4 py-2 bg-cyberok text-black rounded hover:bg-green-400">
+        📄 Generar Informe PDF
+      </button>
+    </div>
+
+    <!-- Resumen numérico -->
+    <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="p-4 bg-cyberbg border-2 border-cyberaccent rounded text-center">
+        <div id="countTotal" class="text-xl font-bold">Controles: 0</div>
+      </div>
+      <div class="p-4 bg-cyberbg border-2 border-cyberok rounded text-center">
+        <div id="countOK" class="text-xl font-bold">Cumplidos ✅: 0</div>
+      </div>
+      <div class="p-4 bg-cyberbg border-2 border-cyberwarn rounded text-center">
+        <div id="countFail" class="text-xl font-bold">No cumplidos ❌: 0</div>
+      </div>
+      <div class="p-4 bg-cyberbg border-2 border-cyberevil rounded text-center">
+        <div id="countRisk" class="text-xl font-bold">Riesgos ALTO ⚠️: 0</div>
+      </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="mt-8 grid md:grid-cols-2 gap-8">
+      <div class="bg-gray-800 p-4 rounded border border-gray-700">
+        <h2 class="text-cyberaccent mb-2 text-center">Cumplimiento</h2>
+        <canvas id="chartCompliance"></canvas>
+      </div>
+      <div class="bg-gray-800 p-4 rounded border border-gray-700">
+        <h2 class="text-cyberaccent mb-2 text-center">Niveles de Riesgo</h2>
+        <canvas id="chartRisk"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="container mx-auto p-4 text-center text-gray-500">
+    © 2025 AuditNIST Pro. All rights reserved.
+  </footer>
+
+  <!-- Dependencias -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    // Datos de problemáticas y soluciones
+    const PROBLEMS = [
+      "Contraseñas débiles o compartidas",
+      "Accesos sin control ni registros",
+      "Ausencia de backups o no probados",
+      "Actualizaciones pendientes",
+      "Logs desactivados o ignorados",
+      "Falta de formación",
+      "Antivirus/firewall sin actualizar",
+      "Uso inadecuado de herramientas ofensivas",
+      "Usuarios inactivos",
+      "Red mal segmentada",
+      "Otro..."
+    ];
+    const SOLUTIONS = [
+      "Aplicar política de contraseñas robustas y únicas",
+      "Implementar control de acceso y registro de auditoría",
+      "Establecer políticas de backup automatizado",
+      "Mantener el software y sistemas actualizados",
+      "Activar y revisar logs periódicamente",
+      "Realizar formaciones de concienciación en ciberseguridad",
+      "Actualizar o sustituir el antivirus/firewall",
+      "Establecer reglas y control sobre el uso de herramientas ofensivas",
+      "Auditar y eliminar usuarios inactivos regularmente",
+      "Segregar la red por VLANs o zonas de confianza",
+      "Otro..."
+    ];
+
+    let openaiKey = '';
+    const MAX_RETRIES = 3;
+    const BASE_DELAY = 2000;
+
+    async function fetchWithRetry(url, options, retries = 0) {
+      try {
+        const res = await fetch(url, options);
+        if (res.status === 429 || res.status >= 500) {
+          if (retries < MAX_RETRIES) {
+            let delay = BASE_DELAY * Math.pow(2, retries);
+            const retryAfter = res.headers.get('Retry-After');
+            if (retryAfter) delay = parseInt(retryAfter, 10) * 1000;
+            console.warn(`Limite alcanzado. Reintentando en ${delay / 1000} s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchWithRetry(url, options, retries + 1);
+          } else {
+            throw new Error("Demasiados intentos. Inténtalo más tarde.");
+          }
+        }
+        return res;
+      } catch (e) {
+        console.error("Error en petición:", e.message);
+        alert("⚠️ Error al conectarse con la API: " + e.message);
+        throw e;
+      }
+    }
+
+    function isValidApiKey(key) {
+      return key.startsWith("sk-") && key.length > 40;
+    }
+
+    document.getElementById('save-key').onclick = () => {
+      openaiKey = document.getElementById('input-api-key').value.trim();
+      document.getElementById('key-status').textContent =
+        openaiKey ? 'Clave guardada ✅' : 'Clave no guardada ❌';
+    };
+
+    document.getElementById('suggest-controls').onclick = async function () {
+      if (!openaiKey) return alert('🛑 Guarda tu API Key primero');
+      if (!isValidApiKey(openaiKey)) return alert("🔑 API Key inválida");
+
+      const btn = this;
+      btn.disabled = true;
+
+      document.getElementById('suggest-status').textContent = 'Generando…';
+
+      try {
+        const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions',  {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [{
+              role: 'user',
+              content: `Dame 5 controles NIST CSF (código + nombre) para la función "${document.getElementById('nist-function').value}". Devuélvelos SOLO como JSON.`
+            }],
+            temperature: 0.2
+          })
+        });
+
+        if (!res.ok) {
+          if (res.status === 429) {
+            throw new Error("Has excedido el límite de solicitudes. Espera unos minutos.");
+          } else {
+            throw new Error(`Error HTTP ${res.status}: ${res.statusText}`);
+          }
+        }
+
+        const data = await res.json();
+        const list = JSON.parse(data.choices[0].message.content);
+
+        document.getElementById('suggested-controls').innerHTML =
+          list.map(c =>
+            `<button onclick="addSuggestedControl('${c.code} – ${c.name}')"
+                     class="px-3 py-1 bg-gray-600 text-white rounded">${c.code}</button>`
+          ).join('');
+      } catch (e) {
+        alert('⚠️ Error al generar sugerencias: ' + e.message);
+      } finally {
+        document.getElementById('suggest-status').textContent = '';
+        btn.disabled = false;
+      }
+    };
+
+    function addSuggestedControl(text) {
+      addControl();
+      const ctrls = document.querySelectorAll('.ctrl');
+      if (ctrls.length > 0) {
+        ctrls[ctrls.length - 1].value = text;
+        updateAll();
+      }
+    }
+
+    async function autoFillEvidence(btn) {
+      if (!openaiKey) return alert('🛑 Guarda tu API Key primero');
+      if (!isValidApiKey(openaiKey)) return alert("🔑 API Key inválida");
+
+      btn.disabled = true;
+
+      const textarea = btn.nextElementSibling;
+      const notes = textarea.value.trim();
+
+      if (!notes) {
+        alert('🛑 Escribe tus notas');
+        btn.disabled = false;
+        return;
+      }
+
+      try {
+        const res = await fetchWithRetry('https://api.openai.com/v1/chat/completions',  {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openaiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [{
+              role: 'user',
+              content: `A partir de estas notas: "${notes}", redacta un párrafo formal de evidencia.`
+            }],
+            temperature: 0.3
+          })
+        });
+
+        if (!res.ok) {
+          if (res.status === 429) {
+            throw new Error("Límite de solicitudes alcanzado. Espera unos minutos.");
+          } else {
+            throw new Error(`Error HTTP ${res.status}: ${res.statusText}`);
+          }
+        }
+
+        const data = await res.json();
+        textarea.value = data.choices[0].message.content.trim();
+        updateAll();
+      } catch (e) {
+        alert('⚠️ Error al generar evidencia: ' + e.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Charts
+    let chartComp, chartRisk;
+    function initCharts(){
+      chartComp = new Chart(
+        document.getElementById('chartCompliance').getContext('2d'),
+        { type:'doughnut',
+          data:{ labels:['Sí','No','Parcial'],
+                 datasets:[{ data:[0,0,0], backgroundColor:['#22c55e','#ef4444','#facc15'] }] }
+        }
+      );
+      chartRisk = new Chart(
+        document.getElementById('chartRisk').getContext('2d'),
+        { type:'bar',
+          data:{ labels:['Alto','Medio','Bajo'],
+                 datasets:[{ label:'Controles', data:[0,0,0],
+                             backgroundColor:['#ef4444','#facc15','#22c55e'] }] },
+          options:{ scales:{ y:{ beginAtZero:true,ticks:{stepSize:1} }}, plugins:{legend:{display:false}} }
+        }
+      );
+    }
+
+    function addControl() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'control bg-gray-800 p-4 rounded border border-gray-700 relative';
+      const makeOpts = arr => arr.map(o=>`<option value="${o}">${o}</option>`).join('');
+      wrapper.innerHTML = `
+        <button class="remove-btn absolute top-2 right-2 bg-cyberevil text-black px-2 py-1 rounded"
+                onclick="this.parentNode.remove(); updateAll()">×</button>
+        <label class="font-bold text-cyberaccent">Problemática detectada</label>
+        <select class="problem mt-1 w-full bg-gray-700 text-gray-100 p-2 rounded"
+                onchange="toggleOther(this)">
+          <option value="">-- Seleccionar --</option>${makeOpts(PROBLEMS)}
+        </select>
+        <input class="problem-other mt-1 w-full p-2 rounded bg-gray-700 text-gray-100 hidden"
+               placeholder="Describa la otra problemática"/>
+        <label class="font-bold text-cyberaccent mt-4">Solución recomendada</label>
+        <select class="solution mt-1 w-full bg-gray-700 text-gray-100 p-2 rounded"
+                onchange="toggleOther(this)">
+          <option value="">-- Seleccionar --</option>${makeOpts(SOLUTIONS)}
+        </select>
+        <input class="solution-other mt-1 w-full p-2 rounded bg-gray-700 text-gray-100 hidden"
+               placeholder="Describa la otra solución"/>
+        <label class="font-bold text-cyberaccent mt-4">Control</label>
+        <input class="ctrl mt-1 w-full p-2 rounded bg-gray-700 text-gray-100"
+               placeholder="PR.AC-1"/>
+        <div class="grid grid-cols-2 gap-4 mt-4">
+          <div>
+            <label class="font-bold text-cyberaccent">Cumple</label>
+            <select class="cumple mt-1 w-full bg-gray-700 text-gray-100 p-2 rounded"
+                    onchange="updateAll()">
+              <option value="">--</option><option>Sí</option><option>No</option><option>Parcial</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-cyberaccent">Riesgo</label>
+            <select class="riesgo mt-1 w-full bg-gray-700 text-gray-100 p-2 rounded"
+                    onchange="updateAll()">
+              <option value="">--</option><option>Alto</option><option>Medio</option><option>Bajo</option>
+            </select>
+          </div>
+        </div>
+        <label class="font-bold text-cyberaccent mt-4">Evidencia</label>
+        <button onclick="autoFillEvidence(this)"
+                class="mt-1 mb-2 px-2 py-1 bg-cyberwarn text-black rounded">
+          ✍️ AI Evidencia
+        </button>
+        <textarea class="evidencia mt-1 w-full p-2 rounded bg-gray-700 text-gray-100"
+                  rows="3" placeholder="Describe la evidencia"></textarea>
+      `;
+      document.getElementById('controls').appendChild(wrapper);
+      updateAll();
+    }
+
+    function toggleOther(sel) {
+      sel.nextElementSibling.classList.toggle('hidden', sel.value !== 'Otro...');
+      updateAll();
+    }
+
+    function updateSummary() {
+      const cnt = document.querySelectorAll('.control').length;
+      const ok  = [...document.querySelectorAll('.cumple')].filter(c=>c.value==='Sí').length;
+      const no  = [...document.querySelectorAll('.cumple')].filter(c=>c.value==='No').length;
+      const alto= [...document.querySelectorAll('.riesgo')].filter(r=>r.value==='Alto').length;
+      document.getElementById('countTotal').textContent = `Controles: ${cnt}`;
+      document.getElementById('countOK').textContent    = `Cumplidos ✅: ${ok}`;
+      document.getElementById('countFail').textContent  = `No cumplidos ❌: ${no}`;
+      document.getElementById('countRisk').textContent  = `Riesgos ALTO ⚠️: ${alto}`;
+    }
+
+    function updateCharts() {
+      if (!chartComp || !chartRisk) return;
+      const ok  = [...document.querySelectorAll('.cumple')].filter(c=>c.value==='Sí').length;
+      const no  = [...document.querySelectorAll('.cumple')].filter(c=>c.value==='No').length;
+      const pa  = [...document.querySelectorAll('.cumple')].filter(c=>c.value==='Parcial').length;
+      chartComp.data.datasets[0].data = [ok,no,pa]; chartComp.update();
+      const alto= [...document.querySelectorAll('.riesgo')].filter(r=>r.value==='Alto').length;
+      const med = [...document.querySelectorAll('.riesgo')].filter(r=>r.value==='Medio').length;
+      const baj = [...document.querySelectorAll('.riesgo')].filter(r=>r.value==='Bajo').length;
+      chartRisk.data.datasets[0].data = [alto,med,baj]; chartRisk.update();
+    }
+
+    function updateAll() {
+      updateSummary();
+      updateCharts();
+    }
+
+    function clearData() {
+      ['empresa_auditada','empresa_auditora','auditor','alcance','id_informe','fecha']
+        .forEach(id=>document.getElementById(id).value='');
+      const ctrls = document.getElementById('controls');
+      while (ctrls.firstChild) ctrls.removeChild(ctrls.firstChild);
+      updateAll();
+      addControl();
+    }
+
+    function generatePDF() {
+      const doc = new jsPDF({unit:'pt',format:'a4'});
+      const data = {
+        empresa:   document.getElementById('empresa_auditada').value,
+        auditora:  document.getElementById('empresa_auditora').value,
+        auditor:   document.getElementById('auditor').value,
+        alcance:   document.getElementById('alcance').value,
+        id:        document.getElementById('id_informe').value,
+        fecha:     document.getElementById('fecha').value
+      };
+      doc.setFontSize(18).setTextColor(56,189,248)
+         .text('Informe de Auditoría – AuditNIST Pro',40,50);
+      doc.setFontSize(11).setTextColor(0,0,0);
+      ['ID Informe','Empresa auditada','Empresa auditora','Auditor','Alcance','Fecha']
+        .forEach((label,i)=>doc.text(
+          `${label}: ${Object.values(data)[i]}`,40,70 + i*14
+        ));
+      let y=70 + 6*14 + 20;
+      document.querySelectorAll('.control').forEach((blk,i)=>{
+        let p=blk.querySelector('.problem').value;
+        if (p==='Otro...') p=blk.querySelector('.problem-other').value;
+        let s=blk.querySelector('.solution').value;
+        if (s==='Otro...') s=blk.querySelector('.solution-other').value;
+        const ctrl=blk.querySelector('.ctrl').value;
+        const cumple=blk.querySelector('.cumple').value;
+        const riesgo=blk.querySelector('.riesgo').value;
+        const ev=blk.querySelector('.evidencia').value;
+        if (y>750){doc.addPage();y=50;}
+        doc.setFontSize(12).setFont(undefined,'bold')
+           .text(`CONTROL ${i+1}: ${ctrl}`,40,y);
+        y+=14; doc.setFont(undefined,'normal');
+        doc.text(`• Problemática: ${p}`,60,y);y+=12;
+        doc.text(`• Solución: ${s}`,60,y);y+=12;
+        doc.text(`• Cumple: ${cumple}`,60,y);y+=12;
+        doc.text(`• Riesgo: ${riesgo}`,60,y);y+=12;
+        doc.text(`• Evidencia:`,60,y);y+=10;
+        const lines=doc.splitTextToSize(ev,480);
+        doc.text(lines,70,y); y+=lines.length*12+10;
+      });
+      doc.save(`AuditNIST_Informe_${data.id||'sinID'}.pdf`);
+    }
+
+    window.onload = () => {
+      initCharts();
+      addControl();
+    };
+  </script>
+</body>
+</html>
