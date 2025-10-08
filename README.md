@@ -34,14 +34,12 @@
 - 📱 **Responsive Design** - Works on desktop and tablet
 
 
+## 📷 Screenshots
 
-```markdown
-![Dashboard](screenshots/dashboard.png)
-![AI Assistant](screenshots/ai-suggestions.png)
-![Reports](screenshots/pdf-report.png)
-```
+![Dashboard](screenshots/dashboard.png)  
+![AI Assistant](screenshots/ai-suggestions.png)  
+![Reports](screenshots/pdf-report.png)  
 
----
 
 ## 🛠️ Tech Stack
 
@@ -379,7 +377,7 @@ See [LICENSE](LICENSE) file for full details.
 ### Get Help
 - 📧 Email: sualba.dev@gmail.com
 - 🌐 Website: [www.sualba.dev](https://www.sualba.dev)
-- 💼 LinkedIn: [Connect with developer](https://linkedin.com/in/yourprofile)
+- 💼 LinkedIn: [Connect with developer](https://linkedin.com/)
 - 🐛 Issues: [GitHub Issues](https://github.com/SUALBA/Auditoria-GRC-Form/issues)
 
 ### Commercial Support
