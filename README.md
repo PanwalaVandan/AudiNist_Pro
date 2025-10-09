@@ -39,6 +39,7 @@
 ![Dashboard](screenshots/dashboard.png)  
 ![AI Assistant](screenshots/ai-suggestions.png)  
 ![Reports](screenshots/pdf-report.png)  
+https://youtu.be/TtRU8qN4AUc
 
 
 ## 🛠️ Tech Stack
