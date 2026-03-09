@@ -147,9 +147,8 @@
   </main>
 
   <footer class="container mx-auto p-4 text-center text-gray-500">
-    © 2025 AuditNIST Local. All rights reserved.
+  © 2025 AuditNIST Local — sualba.dev. All rights reserved.
   </footer>
-
   <!-- Extra buttons -->
   <div class="container mx-auto mt-6">
     <div class="flex flex-wrap gap-4">
@@ -168,6 +167,42 @@
 
   <script>
     const { jsPDF } = window.jspdf;
+    // ── AI CONFIGURATION LAYER ─────────────────────────
+    const AI_CONFIG = {
+      provider: 'local',   // 'local' | 'openai' (futuro)
+      model: 'qwen2.5:3b',    // modelo activo (no cambia nada aún)
+      temperature: 0.2,
+      maxTokens: 800
+    };
+    // ── AI ROUTER ───────────────────────────────────────
+async function generateAI(prompt) {
+
+  const currentLang = localStorage.getItem('auditnist_lang') || 'es';
+
+  const languageMap = {
+    es: "Spanish",
+    en: "English",
+    fr: "French",
+    de: "German",
+    pt: "Portuguese",
+    ar: "Arabic",
+    zh: "Chinese"
+  };
+
+  const languageInstruction = `Respond in ${languageMap[currentLang]}.`;
+
+  const finalPrompt = `
+${languageInstruction}
+
+${prompt}
+`;
+
+  if (AI_CONFIG.provider === 'local') {
+    return callLocalModel(finalPrompt);
+  }
+
+  throw new Error('Invalid AI provider');
+}
 
     // ── TRANSLATIONS ────────────────────────────────────────────────────────
     const TRANSLATIONS = {
@@ -590,20 +625,31 @@
       updateSummary();
     }
 
-    // ── AI (Ollama local) ─────────────────────────────────────────────────────
-    async function fetchLocal(prompt) {
+
+
+        // ── LOCAL MODEL CALL ────────────────────────────────
+    async function callLocalModel(prompt) {
       try {
-        const res = await fetch('http://localhost:11434/api/generate', {
+        const response = await fetch('http://localhost:11434/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'llama3', prompt, stream: false })
+          body: JSON.stringify({
+            model: AI_CONFIG.model,
+            prompt: prompt,
+            stream: false
+          })
         });
-        if (!res.ok) throw new Error('Server error');
-        const data = await res.json();
-        return data.response.trim();
-      } catch (e) {
-        alert(T('err_ollama') + e.message);
-        throw e;
+
+        if (!response.ok) {
+          throw new Error('Ollama server error');
+        }
+
+        const data = await response.json();
+        return (data.response || '').trim();
+
+      } catch (error) {
+        alert(T('err_ollama') + error.message);
+        throw error;
       }
     }
 
@@ -614,8 +660,8 @@
       try {
         const fn = document.getElementById('nist-function').value;
         const prompt = `List 5 NIST CSF controls (code + name) for the "${fn}" function. Return ONLY a valid JSON array:\n[{"code":"PR.AC-1","name":"Access Control Policy"},...]\nNo extra text.`;
-        const response = await fetchLocal(prompt);
-        const match = response.replace(/^[^\[{]*/,'').match(/\[[\s\S]*\]/);
+       const aiText = await generateAI(prompt);
+        const match = aiText.replace(/^[^\[{]*/,'').match(/\[[\s\S]*\]/);
         if (!match) throw new Error('Invalid JSON');
         const list = JSON.parse(match[0]);
         document.getElementById('suggested-controls').innerHTML =
@@ -641,8 +687,19 @@
       if (!notes) { alert(T('write_notes_alert')); return; }
       btn.disabled = true;
       try {
-        const prompt = `From these notes: "${notes}", write a formal audit evidence paragraph.`;
-        textarea.value = await fetchLocal(prompt);
+        const prompt = `
+          Write a concise audit evidence paragraph based strictly on the following notes:
+
+          "${notes}"
+
+          Requirements:
+          - Use professional audit language.
+          - Be factual and objective.
+          - Do not mention NIST unless explicitly referenced.
+          - Focus on observed facts and business impact.
+          - Maximum 120 words.
+          `;
+       textarea.value = await generateAI(prompt);
         updateAll();
       } catch (e) {
         alert(T('err_evidence') + e.message);
