@@ -75,7 +75,7 @@
         <span id="suggest-status" class="text-sm text-cyberwarn"></span>
       </div>
     </div>
-    <div id="suggested-controls" class="mt-4 space-y-2"></div>
+    <div id="suggested-controls" class="mt-4 flex flex-wrap gap-2"></div>
   </section>
 
   <!-- Main Form -->
@@ -1063,9 +1063,10 @@ ${prompt}
 
     document.getElementById('suggested-controls').innerHTML =
       controls.map(c =>
-        `<button onclick="addSuggestedControl('${c.code} – ${c.name}')"
-         class="px-3 py-1 bg-gray-600 text-white rounded">
-         ${c.code}
+        `<button onclick="addSuggestedControl('${c.code} \u2013 ${c.name}')"
+         title="${c.name}"
+         class="px-3 py-1 bg-gray-600 text-white rounded text-left">
+         <span class="font-bold">${c.code}</span><br><span class="text-xs text-gray-300">${c.name}</span>
          </button>`
       ).join('');
 
