@@ -1206,7 +1206,7 @@ async function suggestControls() {
     <button
       onclick="addSuggestedControl('${text}')"
        class="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-xs text-left cursor-pointer"
-    
+      >
       <div class="font-semibold text-cyberaccent">${c.code}</div>
       <div class="text-gray-400 text-[10px]">${c.name}</div>
     </button>
@@ -1612,12 +1612,6 @@ function collectAuditData() {
 }
 
 
-  console.log("AuditEngine controls:");
-  console.log(controls);
-
-  alert("Mira la consola del navegador (F12)");
-}
-
 function updateFrameworkUI() {
   const adapter = auditEngine.getAdapter();
   const categories = adapter.getCategories();
@@ -1659,6 +1653,9 @@ window.exportToTXT = exportToTXT;
 window.generatePDF = generatePDF;
 
 document.addEventListener('DOMContentLoaded', () => {
+
+  const frameworkSelect = document.getElementById("framework-select");
+
   initCharts();
 
   const savedLang = localStorage.getItem('auditnist_lang') || 'es';
@@ -1666,13 +1663,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const savedFw = localStorage.getItem('auditnist_framework') || 'nist-csf';
   auditEngine.setFramework(savedFw);
+
   if (frameworkSelect) frameworkSelect.value = savedFw;
+
   updateFrameworkUI();
 
   addControl();
-
-
-
 });
 
 
