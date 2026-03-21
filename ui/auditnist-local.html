@@ -1788,15 +1788,27 @@ function renderVerticalTabs() {
 
 function switchVertical(v) {
   activeVertical = v;
+  const searchEl = document.getElementById('template-search');
+  if (searchEl) searchEl.value = '';
   renderVerticalTabs();
   renderTemplateControls(v);
 }
 
+function filterTemplateControls() {
+  renderTemplateControls(activeVertical);
+}
+
 function renderTemplateControls(vertical) {
   const fw = auditEngine.frameworkKey;
-  const filtered = scfData.controls.filter(c =>
-    c.verticals.includes(vertical) && c.mappings[fw] && c.mappings[fw].length > 0
-  );
+  const query = (document.getElementById('template-search')?.value || '').toLowerCase().trim();
+  const filtered = scfData.controls.filter(c => {
+    if (!c.verticals.includes(vertical)) return false;
+    if (!c.mappings[fw] || c.mappings[fw].length === 0) return false;
+    if (!query) return true;
+    return c.id.toLowerCase().includes(query) ||
+           c.name.toLowerCase().includes(query) ||
+           c.question.toLowerCase().includes(query);
+  });
   const list = document.getElementById('template-controls-list');
   if (filtered.length === 0) {
     list.innerHTML = `<p class="text-gray-400 text-center py-8">${T('template_no_controls')}</p>`;
@@ -1844,6 +1856,7 @@ window.closeTemplateLibrary = closeTemplateLibrary;
 window.switchVertical = switchVertical;
 window.selectAllTemplateControls = selectAllTemplateControls;
 window.loadSelectedTemplateControls = loadSelectedTemplateControls;
+window.filterTemplateControls = filterTemplateControls;
 window.toggleControlCollapse = toggleControlCollapse;
 window.expandAllControls = expandAllControls;
 window.collapseAllControls = collapseAllControls;
@@ -1898,6 +1911,13 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
       <!-- Vertical tabs -->
       <div id="vertical-tabs" class="flex gap-2 p-4 border-b border-gray-700 flex-wrap"></div>
+      <!-- Search bar -->
+      <div class="px-4 py-2 border-b border-gray-700">
+        <input id="template-search" type="text" oninput="filterTemplateControls()"
+               placeholder="🔍 Search controls..."
+               class="w-full bg-gray-700 text-gray-100 rounded px-3 py-2 text-sm border border-gray-600
+                      focus:outline-none focus:border-cyberaccent placeholder-gray-400"/>
+      </div>
       <!-- Controls list -->
       <div id="template-controls-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
       <!-- Footer -->
