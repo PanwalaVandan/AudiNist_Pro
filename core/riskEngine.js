@@ -1,3 +1,19 @@
+/**
+ * ---------------------------------------------------------
+ * AuditNIST Pro — Risk Engine
+ * ---------------------------------------------------------
+ * Core module responsible for calculating audit summary
+ * and derived risk indicators from evaluated controls.
+ *
+ * Current responsibilities:
+ * - count compliant / partial / non-compliant controls
+ * - count high / medium / low risk items
+ * - provide summary data for dashboards and reporting
+ *
+ * This module is part of the core architecture and may
+ * evolve as scoring and maturity models become more advanced.
+ * ---------------------------------------------------------
+ */
 export class RiskEngine {
 
   /**

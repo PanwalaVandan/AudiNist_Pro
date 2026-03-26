@@ -1,3 +1,18 @@
+/**
+ * AuditNIST Pro — Framework Adapter
+ *
+ * Legacy / future modular architecture reference.
+ *
+ * Current UI mainly uses SCF-derived JSON data for control suggestions
+ * and template library features.
+ *
+ * This adapter is kept for:
+ * - framework structure reference
+ * - future AuditEngine modularization
+ * - AI context and category handling
+ */
+
+
 export class NistAdapter {
   constructor() {
     this.key = "nist-csf";
@@ -96,7 +111,7 @@ export class NistAdapter {
         { code: "DE.CM-08", name: "Vulnerability scans performed regularly" },
         { code: "DE.CM-09", name: "Penetration testing performed regularly" }
          ],
-      "Respond ": [
+      "Respond": [
         { code: "RS.RP-01", name: "Response plan executed during and after an incident" },
         { code: "RS.RP-02", name: "Incident response roles and responsibilities clearly defined" },
         { code: "RS.RP-03", name: "Response plans tested and updated based on lessons learned" },

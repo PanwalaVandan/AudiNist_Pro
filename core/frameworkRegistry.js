@@ -1,3 +1,9 @@
+/**
+ * Future adapter registration layer.
+ * Not yet integrated into the standalone engine flow.
+ */
+
+
 export class FrameworkRegistry {
 
   constructor() {

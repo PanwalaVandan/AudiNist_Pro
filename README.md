@@ -1,250 +1,332 @@
-🔐 AuditNIST Pro
-Lightweight Cybersecurity Audit Toolkit designed to transform complex security frameworks into practical audit workflows.
-AuditNIST Pro converts cybersecurity frameworks such as NIST CSF, ISO 27001, CIS Controls, and COBIT into structured audit checklists that security auditors can evaluate quickly and consistently.
-The project follows a local-first architecture, allowing audits to run entirely in the browser without requiring a backend.
-
-🌍 Language
-English | Español
-
-🎯 Project Vision
-Cybersecurity frameworks are powerful but often difficult to operationalize in real audits.
-AuditNIST Pro aims to solve this by:
-
-transforming frameworks into structured machine-readable models
-converting controls into practical audit units
-allowing auditors to evaluate compliance and risk quickly
-generating structured audit summaries and reports
-
-The long-term goal is to evolve toward a modular GRC audit engine capable of supporting multiple frameworks.
-
-⚙️ Core Architecture
-The project is structured into three layers.
-UI Layer
-Responsible for the audit interface and reporting.
-ui/auditnist-local.html
-Features:
-
-audit checklist interface
-control evaluation
-report generation
-charts and summaries
-multilingual interface
-
-Runs entirely in the browser.
-
-Audit Engine
-Core logic responsible for framework management.
-core/auditEngine.js
-Responsibilities:
-
-manage selected framework
-load framework adapters
-maintain control structures
-coordinate evaluation logic
-
-Uses a framework adapter pattern.
-
-Risk Engine
-core/riskEngine.js
-Responsible for calculating compliance and risk summaries.
-Current scoring model:
-compliant     → low risk
-partial       → medium risk
-non-compliant → high risk
-Future versions will implement more advanced risk scoring.
-
-🧩 Framework Adapters
-Framework support is implemented using adapters.
-frameworks/
-├─ nist-csfAdapter.js
-├─ iso27001Adapter.js
-├─ cisAdapter.js
-└─ cobitAdapter.js
-Each adapter provides:
-getKey()
-getName()
-getCategories()
-getControlsByDomain()
-getControlPlaceholder()
-getAIContext()
-This allows the engine to support multiple frameworks without modifying core logic.
-
-📊 Supported Frameworks
-FrameworkStatusNIST CSF 2.0✅ ImplementedISO 27001:2022✅ ImplementedCIS Controls v8✅ ImplementedCOBIT 2019✅ Implemented
-Backend multi-framework architecture is complete.
-Current work focuses on UI integration and reporting improvements.
-
-🚀 Getting Started
-Clone the repository:
-bashgit clone https://github.com/SUALBA/AudiNist_Pro
-Open the application:
-ui/auditnist-local.html
-No backend required.
-
-🛠 Development Focus
-Current work focuses on improving the multi-framework user experience.
-High Priority
-
-dynamic category dropdown based on framework
-dynamic control ID placeholder
-framework persistence in saved audits
-improved reporting structure
-
-Medium Priority
-
-improved risk scoring model
-cross-framework mapping
-improved audit summaries
-
-Long Term
-
-multi-audit management
-collaboration features
-enterprise reporting
+# 🔐 AuditNIST Pro
 
+> **Local-first multi-framework cybersecurity audit workspace**  
+> Built to help auditors, security teams, and compliance professionals perform structured assessments with clarity, speed, and visual insight.
 
-🟢 Good First Issues
-The following tasks are suitable for new contributors and help improve the project without modifying the core architecture.
+AuditNIST Pro is an evolving cybersecurity audit workspace that brings together **control evaluation, risk visibility, evidence tracking, reusable templates, and reporting** in a single interface.
 
-1. Improve PDF Report Layout
-Enhance the generated PDF report to make it more readable and professional.
-Possible improvements:
+It currently supports:
 
-Better spacing and formatting
-Add section titles
-Highlight risk levels
-Improve typography
+- **NIST CSF 2.0**
+- **ISO 27001**
+- **CIS Controls v8**
+- **COBIT 2019**
 
+---
+## 🤝 Collaboration
 
-2. Add JSON Audit Export
-Implement the option to export audit results as a JSON file.
-Example output format:
-json{
-  "framework": "NIST CSF",
-  "controls": {
-    "PR.AC-01": {
-      "compliance": "partial",
-      "risk": "medium",
-      "evidence": "IAM policy exists"
-    }
-  }
-}
-This would allow integration with other tools.
+AuditNIST Pro is actively developed with contributions from:
 
-3. Improve Control Search
-Add a search field to filter controls by:
+- **Susana Alba Santamaria** — Project Creator  
+- **Vandan Panwala** — Main Collaborator & Architecture Contributor  
 
-control ID
-keyword
-framework category
+GitHub: https://github.com/PanwalaVandan
 
-This would make audits faster for large frameworks.
+## Why this project stands out
 
-4. Domain-Based Control Generation
-Currently auditors manually type control IDs.
-Improve the system so that when a framework domain is selected, the system automatically suggests or generates the corresponding controls.
+Cybersecurity frameworks are powerful, but in practice they are often:
 
-5. Improve Risk Visualization
-Enhance the risk dashboard by adding:
+- difficult to operationalize
+- fragmented across documents
+- repetitive to assess
+- hard to visualize in a clean workflow
 
-risk distribution visualization
-domain-level risk summaries
-clearer chart labels
+**AuditNIST Pro** aims to turn that complexity into a more practical experience:
 
+- evaluate controls
+- classify compliance
+- score risk
+- document evidence
+- reuse controls
+- export results
+- compare framework progress
 
-6. Improve Framework Adapters
-Review and improve framework adapters:
+All from a **local-first workspace**, with no backend required for the core workflow.
 
-verify control mappings
-ensure correct domain grouping
-improve naming consistency
+---
 
-Frameworks currently supported:
+## 📸 Interface Preview
 
-NIST CSF
-ISO 27001
-CIS Controls
-COBIT
+### Multi-Framework Dashboard
 
+![Multi-Framework Dashboard](screenshots/dashboardRisk1.jpg)
 
-7. UI Improvements
-Improve usability of the interface.
-Possible ideas:
+A visual overview of audit activity across frameworks, with summary metrics, compliance visibility, and risk-oriented monitoring.
 
-collapsible control sections
-better form layout
-clearer control labels
-mobile responsiveness
+---
 
+### AI-Assisted Evidence Workflow
 
-8. Documentation Improvements
-Improve project documentation:
+![AI Evidence Workflow](screenshots/AI%20Evidence2.jpg)
 
-architecture explanation
-adapter documentation
-developer guidelines
+Designed to support a more efficient audit process with structured evidence handling and auditor-oriented documentation flow.
 
+---
 
-🧩 Contribution Opportunities
-The project is actively evolving and contributions are welcome.
-UI Integration
+### Suggested Controls by Domain
 
- Dynamic category dropdown based on selected framework
- Dynamic control ID placeholder (NIST → PR.AC-1, ISO → A.5.1, etc.)
- Update UI when framework changes
- Improve framework selector UX
+![Suggested Controls](screenshots/Suggestcontrols3.jpg)
 
+Framework-aware control suggestions help speed up audit preparation and make the workflow more practical.
 
-Reporting Improvements
+---
 
- Add framework name in PDF reports
- Add framework name in TXT reports
- Framework-aware report filename (e.g. Audit_ISO27001_RPT001.pdf)
- Improve report layout and readability
+### Framework Domain Selection
 
+![Framework Domain Selection](screenshots/Suggestdomain6.jpg)
 
-Persistence
+Controls can be explored from a domain perspective, making the tool easier to use for real audit sessions.
 
- Save selected framework in localStorage
- Restore framework when application loads
- Store framework metadata when saving audit JSON
+---
 
+### Framework Progress Tracking
 
-Risk Engine Improvements
+![Framework Progress](screenshots/frameworkProgress4.jpg)
 
- Implement configurable risk scoring
- Support likelihood × impact scoring model
- Improve compliance summary calculations
+Progress bars make it easier to see evaluation coverage across NIST, ISO, CIS, and COBIT at a glance.
 
+---
 
-Developer Experience
+### Control Grid Overview
 
- Add unit tests for AuditEngine
- Add unit tests for RiskEngine
- Improve project documentation
- Improve code comments in framework adapters
+![Control Grid](screenshots/gridControls5.jpg)
 
+A more visual control map helps identify evaluated items and improves audit readability.
 
-🤝 Contributing
-Contributions are welcome.
-Please read CONTRIBUTING.md before opening a pull request.
-Steps to contribute:
+---
 
-Fork the repository
-Create a feature branch
-Implement the improvement
-Submit a Pull Request
+### Framework Control Workspace
 
+![Framework Controls Workspace](screenshots/Frameworkcontrols3.jpg)
 
-Please avoid modifying the core architecture unless the change is discussed first.
+The main workspace is built around practical control handling: compliance, risk, notes, and evidence.
 
+---
 
-🔐 Security Notice
-AuditNIST Pro is an audit assistance tool.
-It does not replace professional cybersecurity audits or regulatory certifications.
-Audit results should always be reviewed by qualified security professionals.
+### Reporting View
 
-📜 License
+![Reporting View](screenshots/SCREENSHOT1.jpg)
+
+AuditNIST Pro is designed to support structured reporting and a cleaner audit output workflow.
+
+---
+
+## ✨ Current Features
+
+### Multi-framework support
+
+- NIST CSF 2.0
+- ISO 27001
+- CIS Controls v8
+- COBIT 2019
+
+### Audit workspace
+
+- Control evaluation
+- Compliance classification
+- Risk rating
+- Auditor notes
+- Evidence tracking
+- Suggested controls
+- Reusable templates
+
+### Dashboard and analytics
+
+- Compliance overview
+- Risk visualization
+- Framework progress
+- Multi-framework comparison
+- Audit metrics
+
+### Reporting and portability
+
+- PDF export
+- JSON export/import
+- Local audit history
+- Structured metadata handling
+
+### Local-first design
+
+- No backend required
+- Standalone usage possible
+- LocalStorage persistence
+- Lightweight deployment model
+
+---
+
+## 🎯 Who this is for
+
+### Auditors and compliance professionals
+
+- Cybersecurity auditors
+- Internal audit teams
+- GRC professionals
+- Compliance specialists
+
+### Security teams
+
+- SOC analysts
+- Security engineers
+- Risk analysts
+- Security consultants
+
+### Contributors
+
+- Frontend developers
+- Security-minded builders
+- Open-source collaborators
+- People interested in audit tooling, compliance UX, and security product ideas
+
+---
+
+## 🧠 Project Vision
+
+AuditNIST Pro is evolving toward a more structured and practical cybersecurity audit platform focused on:
+
+- multi-framework assessments
+- reusable audit logic
+- cross-framework thinking
+- better visualization of compliance and risk
+- more efficient audit documentation
+- future AI-assisted audit workflows
+
+This is **not yet a finished product**, but it is already more than a simple demo or checklist. It is an active workspace moving toward a clearer product direction.
+
+---
+
+## 🤝 How to Contribute
+
+AuditNIST Pro welcomes contributors at different levels.
+
+Whether you want to improve the interface, refine the logic, or help shape the architecture, there is room to contribute.
+
+### 🟢 Level 1 — Quick Contributions
+
+Good starting tasks:
+
+- [ ] Improve UI spacing
+- [ ] Improve control card layout
+- [ ] Improve dashboard styling
+- [ ] Improve responsiveness
+- [ ] Improve chart readability
+- [ ] Improve template library UI
+- [ ] Improve accessibility
+- [ ] Improve dark mode consistency
+
+### 🔵 Level 2 — Core Improvements
+
+More technical contributions:
+
+- [ ] Refactor Audit Engine
+- [ ] Improve control data model
+- [ ] Improve evaluation persistence
+- [ ] Improve dashboard calculations
+- [ ] Improve import/export logic
+- [ ] Improve state management
+- [ ] Improve performance with large audits
+
+### 🟣 Level 3 — Advanced Ideas
+
+Future-oriented contributions:
+
+- [ ] Cross-framework mapping engine
+- [ ] Maturity scoring model
+- [ ] Risk scoring engine
+- [ ] Control normalization
+- [ ] Audit recommendation engine
+- [ ] AI audit assistant
+
+---
+
+## 🏗️ Architecture Direction
+
+AuditNIST Pro is evolving toward a structure built around:
+
+- Audit Engine
+- Framework Adapters
+- Evaluation Registry
+- Template Library
+- Reporting Engine
+- AI Layer
+
+This direction makes the project easier to grow and easier for contributors to work on independently.
+
+---
+
+## 🛣️ Roadmap
+
+### Phase 1 — Foundation
+- Multi-framework support
+- Dashboard
+- Audit controls
+- Reporting
+- Local persistence
+
+### Phase 2 — Structure
+- Cleaner modular architecture
+- Better control model
+- Improved persistence and audit flow
+- Better contributor experience
+
+### Phase 3 — Intelligence
+- Cross-framework mapping
+- Risk scoring improvements
+- Smarter suggestions
+- AI-assisted audit workflows
+
+---
+
+## 🛠️ Tech Stack
+
+- HTML
+- Tailwind CSS
+- JavaScript
+- Chart.js
+- jsPDF
+- FileSaver.js
+- LocalStorage
+
+---
+
+## 🛣️ Roadmap
+
+See full roadmap:  
+📄 ROADMAP.md
+
+---
+## 🚀 Running the Project
+
+Open directly:
+
+```bash
+open auditnist-local.html
+
+Or run a local server:
+
+python -m http.server 8080
+📌 Project Status
+
+Active development — evolving toward a structured cybersecurity audit workspace.
+
+AuditNIST Pro is currently in a strong pre-product phase: usable, visible, and growing.
+
+
+
+
+# 👥 Core Contributors
+
+### 👩‍💻 Author
+**Susana Alba Santamaria**  
+Cybersecurity & Audit-Focused Builder  
+📧 sualba.dev@gmail.com
+
+### 🤝 Main Collaborator
+**Vandan Panwala**  
+Cybersecurity & Software Engineering Contributor  
+🔗 https://github.com/PanwalaVandan
+
+License
+
 MIT License
 
 ⭐ Support the Project

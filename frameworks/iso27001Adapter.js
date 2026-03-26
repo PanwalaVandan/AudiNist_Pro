@@ -1,3 +1,17 @@
+/**
+ * AuditNIST Pro — Framework Adapter
+ *
+ * Legacy / future modular architecture reference.
+ *
+ * Current UI mainly uses SCF-derived JSON data for control suggestions
+ * and template library features.
+ *
+ * This adapter is kept for:
+ * - framework structure reference
+ * - future AuditEngine modularization
+ * - AI context and category handling
+ */
+
 export class IsoAdapter {
   constructor() {
     this.key = "iso27001";
