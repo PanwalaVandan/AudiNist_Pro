@@ -61,17 +61,18 @@ class="px-3 py-1 bg-cyberaccent text-black font-bold rounded text-sm hover:bg-bl
 data-i18n="template_library_btn">📚 Biblioteca</button>
 
 <button onclick="openEvaluationHistory()"
-class="px-3 py-1 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-500">
-📜 Historial
+class="px-3 py-1 bg-indigo-600 text-white font-bold rounded text-sm hover:bg-indigo-500"
+data-i18n="history_btn">📜 Historial
 </button>
 </div>
 
 <!-- 🔹 BUSCADOR DE AUDITORÍAS GUARDADAS -->
 <div class="container mx-auto px-4 mt-4">
 <div class="relative max-w-2xl mx-auto">
-<label class="block text-sm text-gray-400 mb-2">🔍 Buscar Auditoría Guardada</label>
+<label class="block text-sm text-gray-400 mb-2" data-i18n="search_audit_label">🔍 Buscar Auditoría Guardada</label>
 <div class="relative">
-<input id="audit-search" type="text" 
+<input id="audit-search" type="text"
+data-i18n-placeholder="search_audit_ph"
 placeholder="Escribe nombre de empresa o ID de auditoría..."
 oninput="searchSavedAudits()"
 class="w-full bg-gray-800 text-gray-100 rounded-lg px-4 py-3 text-sm border border-gray-600
@@ -88,30 +89,30 @@ class="absolute w-full bg-gray-800 border border-gray-600 rounded-lg mt-1 max-h-
 
 <!-- Dashboard Panel -->
 <div id="dashboard-panel" class="container mx-auto mt-4 bg-purple-900/30 border border-purple-500 rounded-lg p-4">
-<h2 class="text-xl text-purple-400 font-bold mb-4">📊 Dashboard Multi-Framework</h2>
+<h2 class="text-xl text-purple-400 font-bold mb-4" data-i18n="dashboard_title">📊 Dashboard Multi-Framework</h2>
 <div class="grid md:grid-cols-4 gap-4">
 <div class="bg-gray-800 p-3 rounded text-center">
 <div class="text-2xl font-bold text-cyberaccent" id="dash-total-controls">0</div>
-<div class="text-xs text-gray-400">Total Evaluados</div>
+<div class="text-xs text-gray-400" data-i18n="dash_total">Total Evaluados</div>
 </div>
 <div class="bg-gray-800 p-3 rounded text-center">
 <div class="text-2xl font-bold text-cyberok" id="dash-compliant">0</div>
-<div class="text-xs text-gray-400">Cumplidos</div>
+<div class="text-xs text-gray-400" data-i18n="dash_compliant">Cumplidos</div>
 </div>
 <div class="bg-gray-800 p-3 rounded text-center">
 <div class="text-2xl font-bold text-cyberevil" id="dash-noncompliant">0</div>
-<div class="text-xs text-gray-400">No Cumplidos</div>
+<div class="text-xs text-gray-400" data-i18n="dash_noncompliant">No Cumplidos</div>
 </div>
 <div class="bg-gray-800 p-3 rounded text-center">
 <div class="text-2xl font-bold text-cyberwarn" id="dash-high-risk">0</div>
-<div class="text-xs text-gray-400">Riesgos Altos</div>
+<div class="text-xs text-gray-400" data-i18n="dash_high_risk">Riesgos Altos</div>
 </div>
 </div>
 </div>
 
 <!-- Framework Progress -->
 <div class="container mx-auto mt-4 bg-cyberpanel border border-cyberaccent rounded-lg p-4">
-  <h2 class="text-lg text-cyberaccent font-bold mb-4">📊 Framework Progress</h2>
+  <h2 class="text-lg text-cyberaccent font-bold mb-4" data-i18n="framework_progress_title">📊 Framework Progress</h2>
   
   <div id="framework-progress-bars" class="space-y-3">
     <!-- dinámico -->
@@ -194,9 +195,10 @@ data-i18n="collapse_all">↕ Colapsar</button>
 class="px-4 py-2 bg-cyberok text-black rounded hover:bg-green-400"
 data-i18n="generate_pdf_btn">📄 PDF</button>
 <button onclick="exportToJSON()"
-class="px-4 py-2 bg-cyberwarn text-black rounded hover:bg-yellow-500">💾 Exportar JSON</button>
-<label class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 cursor-pointer">
-📂 Importar JSON
+class="px-4 py-2 bg-cyberwarn text-black rounded hover:bg-yellow-500"
+data-i18n="export_json_btn">💾 Exportar JSON</button>
+<label class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 cursor-pointer"
+data-i18n="import_json_btn">📂 Importar JSON
 <input type="file" onchange="importFromJSON(this)" class="hidden" accept=".json">
 </label>
 </div>
@@ -205,35 +207,35 @@ class="px-4 py-2 bg-cyberwarn text-black rounded hover:bg-yellow-500">💾 Expor
 <div class="mt-8 grid md:grid-cols-4 gap-4">
 <div class="p-4 bg-cyberbg border-2 border-cyberaccent rounded text-center">
 <div id="countTotal" class="text-xl font-bold">0</div>
-<div class="text-xs text-gray-400">Controles</div>
+<div class="text-xs text-gray-400" data-i18n="summary_controls">Controles</div>
 </div>
 <div class="p-4 bg-cyberbg border-2 border-cyberok rounded text-center">
 <div id="countOK" class="text-xl font-bold">0</div>
-<div class="text-xs text-gray-400">Cumplidos ✅</div>
+<div class="text-xs text-gray-400" data-i18n="summary_compliant">Cumplidos ✅</div>
 </div>
 <div class="p-4 bg-cyberbg border-2 border-cyberwarn rounded text-center">
 <div id="countFail" class="text-xl font-bold">0</div>
-<div class="text-xs text-gray-400">No cumplidos ❌</div>
+<div class="text-xs text-gray-400" data-i18n="summary_noncompliant">No cumplidos ❌</div>
 </div>
 <div class="p-4 bg-cyberbg border-2 border-cyberevil rounded text-center">
 <div id="countRisk" class="text-xl font-bold">0</div>
-<div class="text-xs text-gray-400">Riesgos ALTOS ⚠️</div>
+<div class="text-xs text-gray-400" data-i18n="summary_high_risk">Riesgos ALTOS ⚠️</div>
 </div>
 </div>
 
 <!-- Charts -->
 <div class="mt-8 grid md:grid-cols-3 gap-8">
 <div class="bg-gray-800 p-4 rounded border border-gray-700">
-<h2 class="text-cyberaccent mb-2 text-center">🎯 Cumplimiento</h2>
+<h2 class="text-cyberaccent mb-2 text-center" data-i18n="chart_compliance_title">🎯 Cumplimiento</h2>
 <canvas id="chartCompliance"></canvas>
 <div id="compliance-percentage" class="text-center mt-2 text-2xl font-bold text-cyberok">0%</div>
 </div>
 <div class="bg-gray-800 p-4 rounded border border-gray-700">
-<h2 class="text-cyberaccent mb-2 text-center">⚠️ Riesgos</h2>
+<h2 class="text-cyberaccent mb-2 text-center" data-i18n="chart_risk_title">⚠️ Riesgos</h2>
 <canvas id="chartRisk"></canvas>
 </div>
 <div class="bg-gray-800 p-4 rounded border border-gray-700">
-<h2 class="text-cyberaccent mb-2 text-center">📈 Evaluaciones</h2>
+<h2 class="text-cyberaccent mb-2 text-center" data-i18n="chart_eval_title">📈 Evaluaciones</h2>
 <canvas id="chartFramework"></canvas>
 </div>
 </div>
@@ -263,12 +265,13 @@ style="display:none">
 <div class="bg-cyberpanel border border-cyberaccent rounded-xl w-11/12 max-w-5xl flex flex-col"
 style="max-height:90vh">
 <div class="p-4 border-b border-gray-700 flex justify-between items-center">
-<h2 class="text-lg font-bold text-cyberaccent">📜 Historial de Evaluaciones</h2>
+<h2 class="text-lg font-bold text-cyberaccent" data-i18n="history_modal_title">📜 Historial de Evaluaciones</h2>
 <button onclick="closeEvaluationHistory()"
 class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
 </div>
 <div class="p-4 border-b border-gray-700">
 <input id="history-search" type="text" oninput="filterEvaluationHistory()"
+data-i18n-placeholder="history_search_ph"
 placeholder="🔍 Buscar por control, empresa o auditoría..."
 class="w-full bg-gray-700 text-gray-100 rounded px-3 py-2 text-sm border border-gray-600"/>
 </div>
@@ -283,13 +286,14 @@ style="display:none">
 <div class="bg-cyberpanel border border-cyberaccent rounded-xl w-11/12 max-w-5xl flex flex-col"
 style="max-height:90vh">
 <div class="p-4 border-b border-gray-700 flex justify-between items-center">
-<h2 class="text-lg font-bold text-cyberaccent" id="template-modal-title">Biblioteca</h2>
+<h2 class="text-lg font-bold text-cyberaccent" id="template-modal-title" data-i18n="template_library_btn">Biblioteca</h2>
 <button onclick="closeTemplateLibrary()"
 class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
 </div>
 <div id="vertical-tabs" class="flex gap-2 p-4 border-b border-gray-700 flex-wrap"></div>
 <div class="px-4 py-2 border-b border-gray-700">
 <input id="template-search" type="text" oninput="filterTemplateControls()"
+data-i18n-placeholder="template_search_ph"
 placeholder="🔍 Buscar controles..."
 class="w-full bg-gray-700 text-gray-100 rounded px-3 py-2 text-sm border border-gray-600"/>
 </div>
@@ -297,9 +301,11 @@ class="w-full bg-gray-700 text-gray-100 rounded px-3 py-2 text-sm border border-
 <div class="p-4 border-t border-gray-700 flex justify-between items-center">
 <button onclick="selectAllTemplateControls()"
 id="template-select-all-btn"
+data-i18n="template_select_all"
 class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500">Seleccionar todo</button>
 <button onclick="loadSelectedTemplateControls()"
 id="template-load-btn"
+data-i18n="template_load_btn"
 class="px-4 py-2 bg-cyberaccent text-black font-bold rounded hover:bg-blue-300">
 Cargar Seleccionados
 </button>
@@ -322,12 +328,12 @@ let currentFramework = 'nist-csf';
 let isDirty = false;
 
 const VERTICAL_META = {
-general:    { label: 'General',    icon: '🌐', color: 'bg-gray-600' },
-healthcare: { label: 'Healthcare', icon: '🏥', color: 'bg-red-600' },
-finance:    { label: 'Finance',    icon: '🏦', color: 'bg-green-600' },
-government: { label: 'Government', icon: '🏛️', color: 'bg-blue-600' },
-defense:    { label: 'Defense',    icon: '🛡️', color: 'bg-purple-600' },
-privacy:    { label: 'Privacy',    icon: '🔒', color: 'bg-yellow-600' }
+general:    { labelKey: 'vertical_general',    icon: '🌐', color: 'bg-gray-600' },
+healthcare: { labelKey: 'vertical_healthcare', icon: '🏥', color: 'bg-red-600' },
+finance:    { labelKey: 'vertical_finance',    icon: '🏦', color: 'bg-green-600' },
+government: { labelKey: 'vertical_government', icon: '🏛️', color: 'bg-blue-600' },
+defense:    { labelKey: 'vertical_defense',    icon: '🛡️', color: 'bg-purple-600' },
+privacy:    { labelKey: 'vertical_privacy',    icon: '🔒', color: 'bg-yellow-600' }
 };
 
 const FRAMEWORKS = {
@@ -626,6 +632,20 @@ if (gridTimeout) clearTimeout(gridTimeout);
 gridTimeout = setTimeout(() => { grid.classList.add('hidden'); }, 5000);
 }
 
+function addControlFromGrid(scfId, fwCode, name) {
+// Don't add if already in workspace
+const existing = [...document.querySelectorAll('.ctrl')].find(el => el.dataset.scfId === scfId);
+if (existing) {
+existing.closest('.control').scrollIntoView({ behavior: 'smooth', block: 'center' });
+return;
+}
+const scfControl = scfData?.controls.find(c => c.id === scfId);
+const question = scfControl?.question || '';
+const vertical = scfControl?.verticals?.[0] || '';
+addControl(false, question, scfId, fwCode, name, vertical);
+document.getElementById('controls').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function changeFramework() {
 currentFramework = document.getElementById('framework-select').value;
 localStorage.setItem('auditnist_framework', currentFramework);
@@ -785,21 +805,21 @@ data-vertical="${vertical}"
 onclick="event.stopPropagation()" readonly />
 <div class="flex items-center gap-2 text-xs">
 <div class="flex flex-col items-start">
-<span class="text-gray-400 text-[10px]">STATUS</span>
+<span class="text-gray-400 text-[10px]">${T('status_label')}</span>
 <select class="cumple bg-gray-700 text-white rounded px-1 py-1" onchange="onComplianceChange(this)">
 <option value="">--</option>
-<option value="yes" data-i18n="yes">Sí</option>
-<option value="no" data-i18n="no">No</option>
-<option value="partial" data-i18n="partial">Parcial</option>
+<option value="yes" data-i18n="yes">${T('yes')}</option>
+<option value="no" data-i18n="no">${T('no')}</option>
+<option value="partial" data-i18n="partial">${T('partial')}</option>
 </select>
 </div>
 <div class="flex flex-col items-start">
-<span class="text-gray-400 text-[10px]">RISK</span>
+<span class="text-gray-400 text-[10px]">${T('risk_label')}</span>
 <select class="riesgo bg-gray-700 text-white rounded px-1 py-1">
 <option value="">--</option>
-<option value="high" data-i18n="high">Alto</option>
-<option value="medium" data-i18n="medium">Medio</option>
-<option value="low" data-i18n="low">Bajo</option>
+<option value="high" data-i18n="high">${T('high')}</option>
+<option value="medium" data-i18n="medium">${T('medium')}</option>
+<option value="low" data-i18n="low">${T('low')}</option>
 </select>
 </div>
 </div>
@@ -809,16 +829,16 @@ onclick="removeControl(this); event.stopPropagation()">×</button>
 <div class="control-body border-t border-gray-700 p-4 ${startCollapsed ? 'hidden' : ''}">
 ${question ? `
 <div class="mb-3 p-3 bg-gray-900 rounded border border-cyberaccent">
-<label class="text-xs text-cyberaccent font-bold">📋 PREGUNTA DE AUDITORÍA</label>
+<label class="text-xs text-cyberaccent font-bold">${T('audit_question_label')}</label>
 <p class="text-sm text-gray-300 mt-1">${question}</p>
 </div>
 ` : ''}
-<label class="text-xs text-cyberaccent">NOTAS DEL AUDITOR</label>
+<label class="text-xs text-cyberaccent">${T('auditor_notes_label')}</label>
 <textarea class="notes w-full mt-1 p-2 rounded bg-gray-700 text-gray-100"
-rows="2" placeholder="Observaciones..."></textarea>
-<label class="text-xs text-cyberaccent mt-3 block">EVIDENCIA</label>
+rows="2" placeholder="${T('notes_ph')}"></textarea>
+<label class="text-xs text-cyberaccent mt-3 block">${T('evidence_label')}</label>
 <textarea class="evidencia w-full p-2 rounded bg-gray-700 text-gray-100"
-rows="3" placeholder="Describe la evidencia..."></textarea>
+rows="3" placeholder="${T('evidence_ph')}"></textarea>
 </div>
 `;
 
@@ -874,6 +894,7 @@ controlBlock.classList.add('border-cyberok', 'opacity-90');
 controlBlock.querySelector('.ctrl').classList.add('text-cyberok');
 
 renderControlGrid();
+updateFrameworkProgressBars();
 }
 isDirty = true;
 }
@@ -936,7 +957,9 @@ statusIcon = '⚠️';
 return `
 <div class="ctrl-box text-xs p-2 rounded border border-gray-600 ${statusClass} cursor-pointer relative"
 data-scf-id="${c.id}"
-data-fw-code="${fwCode}">
+data-fw-code="${fwCode}"
+title="${c.name}"
+onclick="addControlFromGrid('${c.id}','${fwCode}','${c.name.replace(/'/g,'&#39;')}')">
 <div class="font-bold">${fwCode}</div>
 <div class="text-[10px] opacity-70 truncate">${c.name}</div>
 <div class="absolute top-1 right-1 text-[10px]">${statusIcon}</div>
@@ -1369,7 +1392,7 @@ container.innerHTML = Object.entries(VERTICAL_META).map(([v, meta]) => `
 class="px-3 py-2 rounded-lg text-sm font-bold transition-colors ${v === activeVertical
 ? 'bg-cyberaccent text-black'
 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">
-${meta.icon} ${meta.label}
+${meta.icon} ${T(meta.labelKey)}
 </button>`).join('');
 }
 
@@ -1405,7 +1428,7 @@ c.question.toLowerCase().includes(query)
 
 const list = document.getElementById('template-controls-list');
 if (filtered.length === 0) {
-list.innerHTML = `<p class="text-gray-400 text-center py-8">No se encontraron controles</p>`;
+list.innerHTML = `<p class="text-gray-400 text-center py-8">${T('template_no_results')}</p>`;
 return;
 }
 
@@ -1639,6 +1662,7 @@ scope_label:'Alcance', scope_ph:'Sistemas, red, aplicaciones',
 report_id_label:'ID informe', report_id_ph:'Ej: INF-2025-001',
 audit_date_label:'Fecha', add_control_btn:'+ Añadir Control',
 generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 Exportar JSON', import_json_btn:'📂 Importar JSON',
 save_progress_btn:'💾 Guardar', view_saved_btn:'📋 Ver Informes',
 chart_compliance:'Cumplimiento', chart_risk:'Riesgos',
 yes:'Sí', no:'No', partial:'Parcial',
@@ -1648,7 +1672,27 @@ template_loading:'Cargando...',
 template_server_err:'Requiere servidor local: python -m http.server 8080',
 expand_all:'↕ Expandir', collapse_all:'↕ Colapsar',
 err_suggestions:'⚠️ Error: ', saved_ok:'✅ Guardado.',
-no_saved_reports:'⚠️ Sin informes.', no_reports_yet:'Sin informes.'
+no_saved_reports:'⚠️ Sin informes.', no_reports_yet:'Sin informes.',
+history_btn:'📜 Historial', history_modal_title:'📜 Historial de Evaluaciones',
+history_search_ph:'🔍 Buscar por control, empresa o auditoría...',
+search_audit_label:'🔍 Buscar Auditoría Guardada',
+search_audit_ph:'Escribe nombre de empresa o ID de auditoría...',
+dashboard_title:'📊 Dashboard Multi-Framework',
+dash_total:'Total Evaluados', dash_compliant:'Cumplidos',
+dash_noncompliant:'No Cumplidos', dash_high_risk:'Riesgos Altos',
+framework_progress_title:'📊 Progreso por Framework',
+summary_controls:'Controles', summary_compliant:'Cumplidos ✅',
+summary_noncompliant:'No cumplidos ❌', summary_high_risk:'Riesgos ALTOS ⚠️',
+chart_compliance_title:'🎯 Cumplimiento', chart_risk_title:'⚠️ Riesgos',
+chart_eval_title:'📈 Evaluaciones',
+template_search_ph:'🔍 Buscar controles...', template_select_all:'Seleccionar todo',
+template_load_btn:'Cargar Seleccionados', template_no_results:'No se encontraron controles',
+vertical_general:'General', vertical_healthcare:'Salud', vertical_finance:'Finanzas',
+vertical_government:'Gobierno', vertical_defense:'Defensa', vertical_privacy:'Privacidad',
+status_label:'ESTADO', risk_label:'RIESGO',
+audit_question_label:'📋 PREGUNTA DE AUDITORÍA',
+auditor_notes_label:'NOTAS DEL AUDITOR', notes_ph:'Observaciones...',
+evidence_label:'EVIDENCIA', evidence_ph:'Describe la evidencia...'
 },
 en: {
 clear_data:'Clear Data', nist_function_label:'Domain',
@@ -1660,6 +1704,7 @@ scope_label:'Scope', scope_ph:'Systems, network, apps',
 report_id_label:'Report ID', report_id_ph:'Ex: INF-2025-001',
 audit_date_label:'Date', add_control_btn:'+ Add Control',
 generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 Export JSON', import_json_btn:'📂 Import JSON',
 save_progress_btn:'💾 Save', view_saved_btn:'📋 Reports',
 chart_compliance:'Compliance', chart_risk:'Risks',
 yes:'Yes', no:'No', partial:'Partial',
@@ -1669,7 +1714,237 @@ template_loading:'Loading...',
 template_server_err:'Requires local server: python -m http.server 8080',
 expand_all:'↕ Expand', collapse_all:'↕ Collapse',
 err_suggestions:'⚠️ Error: ', saved_ok:'✅ Saved.',
-no_saved_reports:'⚠️ No reports.', no_reports_yet:'No reports.'
+no_saved_reports:'⚠️ No reports.', no_reports_yet:'No reports.',
+history_btn:'📜 History', history_modal_title:'📜 Evaluation History',
+history_search_ph:'🔍 Search by control, company or audit...',
+search_audit_label:'🔍 Search Saved Audit',
+search_audit_ph:'Type company name or audit ID...',
+dashboard_title:'📊 Multi-Framework Dashboard',
+dash_total:'Total Evaluated', dash_compliant:'Compliant',
+dash_noncompliant:'Non-Compliant', dash_high_risk:'High Risks',
+framework_progress_title:'📊 Framework Progress',
+summary_controls:'Controls', summary_compliant:'Compliant ✅',
+summary_noncompliant:'Non-Compliant ❌', summary_high_risk:'HIGH Risks ⚠️',
+chart_compliance_title:'🎯 Compliance', chart_risk_title:'⚠️ Risks',
+chart_eval_title:'📈 Evaluations',
+template_search_ph:'🔍 Search controls...', template_select_all:'Select All',
+template_load_btn:'Load Selected', template_no_results:'No controls found',
+vertical_general:'General', vertical_healthcare:'Healthcare', vertical_finance:'Finance',
+vertical_government:'Government', vertical_defense:'Defense', vertical_privacy:'Privacy',
+status_label:'STATUS', risk_label:'RISK',
+audit_question_label:'📋 AUDIT QUESTION',
+auditor_notes_label:'AUDITOR NOTES', notes_ph:'Observations...',
+evidence_label:'EVIDENCE', evidence_ph:'Describe the evidence...'
+},
+fr: {
+clear_data:'Effacer données', nist_function_label:'Domaine',
+suggest_btn:'🔍 Suggérer', generating:'Génération...',
+audited_company:'Entreprise auditée', audited_company_ph:'Nom de l\'entreprise',
+auditing_company:'Entreprise auditrice', auditing_company_ph:'Votre cabinet ou SOC',
+auditor_label:'Auditeur responsable', auditor_ph:'Nom et rôle',
+scope_label:'Périmètre', scope_ph:'Systèmes, réseau, applications',
+report_id_label:'ID rapport', report_id_ph:'Ex: INF-2025-001',
+audit_date_label:'Date', add_control_btn:'+ Ajouter Contrôle',
+generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 Exporter JSON', import_json_btn:'📂 Importer JSON',
+save_progress_btn:'💾 Sauvegarder', view_saved_btn:'📋 Rapports',
+chart_compliance:'Conformité', chart_risk:'Risques',
+yes:'Oui', no:'Non', partial:'Partiel',
+high:'Élevé', medium:'Moyen', low:'Faible',
+template_library_btn:'📚 Bibliothèque',
+template_loading:'Chargement...',
+template_server_err:'Nécessite un serveur local: python -m http.server 8080',
+expand_all:'↕ Développer', collapse_all:'↕ Réduire',
+err_suggestions:'⚠️ Erreur: ', saved_ok:'✅ Sauvegardé.',
+no_saved_reports:'⚠️ Aucun rapport.', no_reports_yet:'Aucun rapport.',
+history_btn:'📜 Historique', history_modal_title:'📜 Historique des Évaluations',
+history_search_ph:'🔍 Rechercher par contrôle, entreprise ou audit...',
+search_audit_label:'🔍 Rechercher Audit Sauvegardé',
+search_audit_ph:'Nom d\'entreprise ou ID d\'audit...',
+dashboard_title:'📊 Tableau de Bord Multi-Framework',
+dash_total:'Total Évalués', dash_compliant:'Conformes',
+dash_noncompliant:'Non Conformes', dash_high_risk:'Risques Élevés',
+framework_progress_title:'📊 Progression par Framework',
+summary_controls:'Contrôles', summary_compliant:'Conformes ✅',
+summary_noncompliant:'Non conformes ❌', summary_high_risk:'Risques ÉLEVÉS ⚠️',
+chart_compliance_title:'🎯 Conformité', chart_risk_title:'⚠️ Risques',
+chart_eval_title:'📈 Évaluations',
+template_search_ph:'🔍 Rechercher contrôles...', template_select_all:'Tout sélectionner',
+template_load_btn:'Charger la sélection', template_no_results:'Aucun contrôle trouvé',
+vertical_general:'Général', vertical_healthcare:'Santé', vertical_finance:'Finance',
+vertical_government:'Gouvernement', vertical_defense:'Défense', vertical_privacy:'Confidentialité',
+status_label:'STATUT', risk_label:'RISQUE',
+audit_question_label:'📋 QUESTION D\'AUDIT',
+auditor_notes_label:'NOTES DE L\'AUDITEUR', notes_ph:'Observations...',
+evidence_label:'PREUVE', evidence_ph:'Décrivez la preuve...'
+},
+de: {
+clear_data:'Daten löschen', nist_function_label:'Domäne',
+suggest_btn:'🔍 Vorschlagen', generating:'Generierung...',
+audited_company:'Geprüftes Unternehmen', audited_company_ph:'Unternehmensname',
+auditing_company:'Prüfendes Unternehmen', auditing_company_ph:'Ihre Beratung oder SOC',
+auditor_label:'Leitender Prüfer', auditor_ph:'Name und Rolle',
+scope_label:'Umfang', scope_ph:'Systeme, Netzwerk, Anwendungen',
+report_id_label:'Bericht-ID', report_id_ph:'Bsp: INF-2025-001',
+audit_date_label:'Datum', add_control_btn:'+ Kontrolle hinzufügen',
+generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 JSON exportieren', import_json_btn:'📂 JSON importieren',
+save_progress_btn:'💾 Speichern', view_saved_btn:'📋 Berichte',
+chart_compliance:'Konformität', chart_risk:'Risiken',
+yes:'Ja', no:'Nein', partial:'Teilweise',
+high:'Hoch', medium:'Mittel', low:'Niedrig',
+template_library_btn:'📚 Bibliothek',
+template_loading:'Laden...',
+template_server_err:'Lokaler Server erforderlich: python -m http.server 8080',
+expand_all:'↕ Erweitern', collapse_all:'↕ Einklappen',
+err_suggestions:'⚠️ Fehler: ', saved_ok:'✅ Gespeichert.',
+no_saved_reports:'⚠️ Keine Berichte.', no_reports_yet:'Keine Berichte.',
+history_btn:'📜 Verlauf', history_modal_title:'📜 Bewertungsverlauf',
+history_search_ph:'🔍 Nach Kontrolle, Unternehmen oder Audit suchen...',
+search_audit_label:'🔍 Gespeicherte Prüfung suchen',
+search_audit_ph:'Unternehmensname oder Audit-ID eingeben...',
+dashboard_title:'📊 Multi-Framework Dashboard',
+dash_total:'Gesamt Bewertet', dash_compliant:'Konform',
+dash_noncompliant:'Nicht Konform', dash_high_risk:'Hohe Risiken',
+framework_progress_title:'📊 Framework Fortschritt',
+summary_controls:'Kontrollen', summary_compliant:'Konform ✅',
+summary_noncompliant:'Nicht konform ❌', summary_high_risk:'HOHE Risiken ⚠️',
+chart_compliance_title:'🎯 Konformität', chart_risk_title:'⚠️ Risiken',
+chart_eval_title:'📈 Bewertungen',
+template_search_ph:'🔍 Kontrollen suchen...', template_select_all:'Alle auswählen',
+template_load_btn:'Auswahl laden', template_no_results:'Keine Kontrollen gefunden',
+vertical_general:'Allgemein', vertical_healthcare:'Gesundheit', vertical_finance:'Finanzen',
+vertical_government:'Regierung', vertical_defense:'Verteidigung', vertical_privacy:'Datenschutz',
+status_label:'STATUS', risk_label:'RISIKO',
+audit_question_label:'📋 PRÜFFRAGE',
+auditor_notes_label:'PRÜFERNOTIZEN', notes_ph:'Beobachtungen...',
+evidence_label:'NACHWEIS', evidence_ph:'Nachweis beschreiben...'
+},
+pt: {
+clear_data:'Limpar dados', nist_function_label:'Domínio',
+suggest_btn:'🔍 Sugerir', generating:'Gerando...',
+audited_company:'Empresa auditada', audited_company_ph:'Nome da empresa',
+auditing_company:'Empresa auditora', auditing_company_ph:'Sua consultoria ou SOC',
+auditor_label:'Auditor responsável', auditor_ph:'Nome e função',
+scope_label:'Escopo', scope_ph:'Sistemas, rede, aplicações',
+report_id_label:'ID relatório', report_id_ph:'Ex: INF-2025-001',
+audit_date_label:'Data', add_control_btn:'+ Adicionar Controle',
+generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 Exportar JSON', import_json_btn:'📂 Importar JSON',
+save_progress_btn:'💾 Salvar', view_saved_btn:'📋 Relatórios',
+chart_compliance:'Conformidade', chart_risk:'Riscos',
+yes:'Sim', no:'Não', partial:'Parcial',
+high:'Alto', medium:'Médio', low:'Baixo',
+template_library_btn:'📚 Biblioteca',
+template_loading:'Carregando...',
+template_server_err:'Requer servidor local: python -m http.server 8080',
+expand_all:'↕ Expandir', collapse_all:'↕ Recolher',
+err_suggestions:'⚠️ Erro: ', saved_ok:'✅ Salvo.',
+no_saved_reports:'⚠️ Sem relatórios.', no_reports_yet:'Sem relatórios.',
+history_btn:'📜 Histórico', history_modal_title:'📜 Histórico de Avaliações',
+history_search_ph:'🔍 Pesquisar por controle, empresa ou auditoria...',
+search_audit_label:'🔍 Pesquisar Auditoria Salva',
+search_audit_ph:'Digite o nome da empresa ou ID da auditoria...',
+dashboard_title:'📊 Dashboard Multi-Framework',
+dash_total:'Total Avaliados', dash_compliant:'Conformes',
+dash_noncompliant:'Não Conformes', dash_high_risk:'Riscos Altos',
+framework_progress_title:'📊 Progresso por Framework',
+summary_controls:'Controles', summary_compliant:'Conformes ✅',
+summary_noncompliant:'Não conformes ❌', summary_high_risk:'Riscos ALTOS ⚠️',
+chart_compliance_title:'🎯 Conformidade', chart_risk_title:'⚠️ Riscos',
+chart_eval_title:'📈 Avaliações',
+template_search_ph:'🔍 Pesquisar controles...', template_select_all:'Selecionar tudo',
+template_load_btn:'Carregar Selecionados', template_no_results:'Nenhum controle encontrado',
+vertical_general:'Geral', vertical_healthcare:'Saúde', vertical_finance:'Finanças',
+vertical_government:'Governo', vertical_defense:'Defesa', vertical_privacy:'Privacidade',
+status_label:'STATUS', risk_label:'RISCO',
+audit_question_label:'📋 QUESTÃO DE AUDITORIA',
+auditor_notes_label:'NOTAS DO AUDITOR', notes_ph:'Observações...',
+evidence_label:'EVIDÊNCIA', evidence_ph:'Descreva a evidência...'
+},
+ar: {
+clear_data:'مسح البيانات', nist_function_label:'النطاق',
+suggest_btn:'🔍 اقتراح', generating:'جارٍ التوليد...',
+audited_company:'الشركة المدققة', audited_company_ph:'اسم الشركة',
+auditing_company:'شركة التدقيق', auditing_company_ph:'مكتب الاستشارات',
+auditor_label:'المدقق المسؤول', auditor_ph:'الاسم والدور',
+scope_label:'النطاق', scope_ph:'الأنظمة، الشبكة، التطبيقات',
+report_id_label:'رقم التقرير', report_id_ph:'مثال: INF-2025-001',
+audit_date_label:'التاريخ', add_control_btn:'+ إضافة ضابط',
+generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 تصدير JSON', import_json_btn:'📂 استيراد JSON',
+save_progress_btn:'💾 حفظ', view_saved_btn:'📋 التقارير',
+chart_compliance:'الامتثال', chart_risk:'المخاطر',
+yes:'نعم', no:'لا', partial:'جزئي',
+high:'عالي', medium:'متوسط', low:'منخفض',
+template_library_btn:'📚 المكتبة',
+template_loading:'جارٍ التحميل...',
+template_server_err:'يتطلب خادماً محلياً: python -m http.server 8080',
+expand_all:'↕ توسيع', collapse_all:'↕ طي',
+err_suggestions:'⚠️ خطأ: ', saved_ok:'✅ تم الحفظ.',
+no_saved_reports:'⚠️ لا توجد تقارير.', no_reports_yet:'لا توجد تقارير.',
+history_btn:'📜 السجل', history_modal_title:'📜 سجل التقييمات',
+history_search_ph:'🔍 البحث بالضابط أو الشركة أو التدقيق...',
+search_audit_label:'🔍 البحث في التدقيقات المحفوظة',
+search_audit_ph:'اكتب اسم الشركة أو رقم التدقيق...',
+dashboard_title:'📊 لوحة التحكم متعددة الأطر',
+dash_total:'إجمالي المقيّمين', dash_compliant:'ممتثل',
+dash_noncompliant:'غير ممتثل', dash_high_risk:'مخاطر عالية',
+framework_progress_title:'📊 تقدم الإطار',
+summary_controls:'الضوابط', summary_compliant:'ممتثل ✅',
+summary_noncompliant:'غير ممتثل ❌', summary_high_risk:'مخاطر عالية ⚠️',
+chart_compliance_title:'🎯 الامتثال', chart_risk_title:'⚠️ المخاطر',
+chart_eval_title:'📈 التقييمات',
+template_search_ph:'🔍 البحث في الضوابط...', template_select_all:'تحديد الكل',
+template_load_btn:'تحميل المحدد', template_no_results:'لم يتم العثور على ضوابط',
+vertical_general:'عام', vertical_healthcare:'الرعاية الصحية', vertical_finance:'المالية',
+vertical_government:'الحكومة', vertical_defense:'الدفاع', vertical_privacy:'الخصوصية',
+status_label:'الحالة', risk_label:'المخاطرة',
+audit_question_label:'📋 سؤال التدقيق',
+auditor_notes_label:'ملاحظات المدقق', notes_ph:'الملاحظات...',
+evidence_label:'الدليل', evidence_ph:'صف الدليل...'
+},
+zh: {
+clear_data:'清除数据', nist_function_label:'域',
+suggest_btn:'🔍 建议', generating:'生成中...',
+audited_company:'被审计企业', audited_company_ph:'公司名称',
+auditing_company:'审计公司', auditing_company_ph:'您的咨询公司',
+auditor_label:'主审计员', auditor_ph:'姓名和职务',
+scope_label:'范围', scope_ph:'系统、网络、应用程序',
+report_id_label:'报告编号', report_id_ph:'例: INF-2025-001',
+audit_date_label:'日期', add_control_btn:'+ 添加控制',
+generate_pdf_btn:'📄 PDF', export_txt_btn:'📄 TXT',
+export_json_btn:'💾 导出 JSON', import_json_btn:'📂 导入 JSON',
+save_progress_btn:'💾 保存', view_saved_btn:'📋 报告',
+chart_compliance:'合规性', chart_risk:'风险',
+yes:'是', no:'否', partial:'部分',
+high:'高', medium:'中', low:'低',
+template_library_btn:'📚 模板库',
+template_loading:'加载中...',
+template_server_err:'需要本地服务器: python -m http.server 8080',
+expand_all:'↕ 展开', collapse_all:'↕ 折叠',
+err_suggestions:'⚠️ 错误: ', saved_ok:'✅ 已保存.',
+no_saved_reports:'⚠️ 无报告.', no_reports_yet:'无报告.',
+history_btn:'📜 历史', history_modal_title:'📜 评估历史',
+history_search_ph:'🔍 按控制、公司或审计搜索...',
+search_audit_label:'🔍 搜索已保存的审计',
+search_audit_ph:'输入公司名称或审计ID...',
+dashboard_title:'📊 多框架仪表板',
+dash_total:'总评估数', dash_compliant:'合规',
+dash_noncompliant:'不合规', dash_high_risk:'高风险',
+framework_progress_title:'📊 框架进度',
+summary_controls:'控制项', summary_compliant:'合规 ✅',
+summary_noncompliant:'不合规 ❌', summary_high_risk:'高风险 ⚠️',
+chart_compliance_title:'🎯 合规性', chart_risk_title:'⚠️ 风险',
+chart_eval_title:'📈 评估',
+template_search_ph:'🔍 搜索控制项...', template_select_all:'全选',
+template_load_btn:'加载所选', template_no_results:'未找到控制项',
+vertical_general:'通用', vertical_healthcare:'医疗', vertical_finance:'金融',
+vertical_government:'政府', vertical_defense:'国防', vertical_privacy:'隐私',
+status_label:'状态', risk_label:'风险',
+audit_question_label:'📋 审计问题',
+auditor_notes_label:'审计员备注', notes_ph:'观察...',
+evidence_label:'证据', evidence_ph:'描述证据...'
 }
 };
 
@@ -1690,6 +1965,7 @@ el.placeholder = T(el.getAttribute('data-i18n-placeholder'));
 
 if (chartComp) { chartComp.data.labels = [T('yes'), T('no'), T('partial')]; chartComp.update(); }
 if (chartRisk) { chartRisk.data.labels = [T('high'), T('medium'), T('low')]; chartRisk.update(); }
+if (document.getElementById('vertical-tabs')?.children.length) renderVerticalTabs();
 
 const ls = document.getElementById('lang-select');
 if (ls) ls.value = lang;
@@ -1761,6 +2037,7 @@ window.changeFramework = changeFramework;
 window.removeControl = removeControl;
 window.onComplianceChange = onComplianceChange;
 window.showGridPreview = showGridPreview;
+window.addControlFromGrid = addControlFromGrid;
 window.addEventListener('beforeunload', function (e) {
   if (isDirty) {
     e.preventDefault();
