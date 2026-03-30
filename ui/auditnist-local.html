@@ -121,7 +121,7 @@ class="absolute w-full bg-gray-800 border border-gray-600 rounded-lg mt-1 max-h-
 
 <!-- Visual Grid -->
 <div id="controls-visual-grid"
-class="hidden container mx-auto mt-4 grid grid-cols-4 md:grid-cols-8 gap-2">
+class="container mx-auto mt-4 grid grid-cols-4 md:grid-cols-8 gap-2">
 </div>
 
 <!-- Suggest Controls -->
@@ -626,10 +626,7 @@ return this.store[scfId]?.evaluations || [];
 // 🔹 UI FUNCTIONS
 // ─────────────────────────────────────────────────────────────────────────────
 function showGridPreview() {
-const grid = document.getElementById('controls-visual-grid');
-grid.classList.remove('hidden');
-if (gridTimeout) clearTimeout(gridTimeout);
-gridTimeout = setTimeout(() => { grid.classList.add('hidden'); }, 5000);
+// Grid is always visible — no-op kept for backwards compatibility
 }
 
 function changeFramework() {
