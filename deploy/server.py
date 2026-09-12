@@ -104,15 +104,21 @@ def _parse_pdf(pdf_bytes: bytes, filename: str) -> list[dict]:
     ]
 
 
+EMBED_BATCH = 512  # keep each embed request well under the service's caps
+
 def _embed(texts: list[str]) -> np.ndarray:
     if not texts:
         return np.empty((0, EMBED_DIM), dtype=np.float32)
+    # A real compliance PDF yields thousands of chunks — batch so no single
+    # request exceeds the embed service's per-call limits.
+    out = []
     with httpx.Client(timeout=620.0, follow_redirects=True) as c:
-        r = c.post(f"{EMBED_URL}/embed", json={"texts": texts},
-                   headers={"Authorization": f"Bearer {EMBED_SECRET}"})
-        r.raise_for_status()
-        vecs = r.json()["vectors"]
-    return np.asarray(vecs, dtype=np.float32)
+        for i in range(0, len(texts), EMBED_BATCH):
+            r = c.post(f"{EMBED_URL}/embed", json={"texts": texts[i:i + EMBED_BATCH]},
+                       headers={"Authorization": f"Bearer {EMBED_SECRET}"})
+            r.raise_for_status()
+            out.extend(r.json()["vectors"])
+    return np.asarray(out, dtype=np.float32)
 
 
 # ── API (contracts match the local rag/server.py so the UI is unchanged) ───────
