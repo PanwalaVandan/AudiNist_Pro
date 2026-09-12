@@ -3118,7 +3118,7 @@ function buildApprovalRow(roleKey, roleLabel, designatedName, designatedOrgRole,
   const st = statusMap[a.status] || statusMap.pending;
   let actionsHtml = '';
   if (!locked) {
-    if (a.status === 'pending' || a.status === 'rejected') {
+    if (a.status === 'pending' || a.status === 'rejected' || a.status === 'revoked') {
       const label = roleKey === 'reviewer' ? T('approval_action_approve_review') : T('approval_action_approve_issuance');
       actionsHtml = `<button type="button" onclick="approveRole('${roleKey}')" class="px-2 py-0.5 bg-cyberok text-black rounded text-[10px] font-bold hover:bg-green-400">${escapeHTML(label)}</button>
         <button type="button" onclick="rejectApproval('${roleKey}')" class="px-2 py-0.5 bg-cyberevil text-white rounded text-[10px] font-bold hover:bg-red-500">${T('approval_action_reject')}</button>`;
@@ -3152,7 +3152,10 @@ function approveRole(roleKey) {
   const roleField = roleKey === 'reviewer' ? 'doc_reviewer_role' : 'doc_approver_role';
   const name = document.getElementById(nameField)?.value?.trim() || '';
   const orgRole = document.getElementById(roleField)?.value?.trim() || '';
-  const version = document.getElementById('doc_version')?.value?.trim() || '';
+  // Default must match issueFinalReport()'s versionToIssue default ('1.0'),
+  // or an approval granted with the version field left blank is stamped ''
+  // and never matches the '1.0' the issue check computes.
+  const version = document.getElementById('doc_version')?.value?.trim() || '1.0';
 
   if (!name || !orgRole) {
     alert('🛑 ' + T('approval_missing_identity').replace('{field}', roleKey === 'reviewer' ? T('doc_reviewer_label') : T('doc_approver_label')));
