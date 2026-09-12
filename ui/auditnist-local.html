@@ -4795,6 +4795,9 @@ function closeAIAssessment() {
 
 // ─── Auto Document Analysis (Local RAG) ──────────────────────────────────────
 
+// RAG server base URL: local desktop server over file://, same-origin when
+// the app is served over http(s) (the hosted deploy serves UI + RAG together).
+const RAG_BASE = location.protocol === 'file:' ? 'http://localhost:8765' : '';
 let ragSessionId        = null;
 let pendingFiles        = [];
 let autoAnalysisRunning = false;
@@ -4854,7 +4857,7 @@ function closeAutoAnalyze() {
   modal.classList.remove('flex');
   // Free RAG session memory
   if (ragSessionId) {
-    fetch(`http://localhost:8765/session/${ragSessionId}`, { method: 'DELETE', headers: { 'X-AuditSym-Client': 'auditsym-ui' } }).catch(()=>{});
+    fetch(`${RAG_BASE}/session/${ragSessionId}`, { method: 'DELETE', headers: { 'X-AuditSym-Client': 'auditsym-ui' } }).catch(()=>{});
     ragSessionId = null;
   }
 }
@@ -4862,7 +4865,7 @@ function closeAutoAnalyze() {
 /** Ping /health — returns true if server is responding. */
 async function checkRagServer() {
   try {
-    const r = await fetch('http://localhost:8765/health', { signal: AbortSignal.timeout(2000) });
+    const r = await fetch(`${RAG_BASE}/health`, { signal: AbortSignal.timeout(2000) });
     return r.ok;
   } catch { return false; }
 }
@@ -4901,7 +4904,7 @@ async function uploadDocsToRag() {
 
   // Custom header forces a CORS preflight and identifies this as the real
   // UI to the RAG server's origin/header checks — see rag/server.py.
-  const r    = await fetch('http://localhost:8765/upload', {
+  const r    = await fetch(`${RAG_BASE}/upload`, {
     method : 'POST',
     headers: { 'X-AuditSym-Client': 'auditsym-ui' },
     body   : form
@@ -5079,7 +5082,7 @@ async function runAutoAnalysis() {
         question    : ctrlQuestion,
         top_k       : 5
       };
-      const qr   = await fetch('http://localhost:8765/query', {
+      const qr   = await fetch(`${RAG_BASE}/query`, {
         method : 'POST',
         headers: { 'Content-Type': 'application/json', 'X-AuditSym-Client': 'auditsym-ui' },
         body   : JSON.stringify(qBody)
