@@ -9068,7 +9068,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  const savedLang = localStorage.getItem('auditnist_lang') || localStorage.getItem('auditsym_shared_lang') || 'en';
+  // Real cross-page sync: the shared key (the most recent choice made on
+  // ANY of the three AuditSym pages) wins at load time — see the matching
+  // comment in landingPAge.html.
+  const savedLang = localStorage.getItem('auditsym_shared_lang') || localStorage.getItem('auditnist_lang') || 'en';
   setLanguage(savedLang);
 
   const savedFw = localStorage.getItem('auditnist_framework') || 'nist-csf';

@@ -97,6 +97,8 @@ tailwind.config = {
           <option value="fr">FR</option>
           <option value="de">DE</option>
           <option value="pt">PT</option>
+          <option value="ar">AR</option>
+          <option value="zh">ZH</option>
         </select>
         <button onclick="exportHubJSON()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium transition flex items-center gap-1">
           💾 <span data-i18n="export_json">Export JSON</span>
@@ -3229,6 +3231,7 @@ function setLanguage(lang) {
   state.lang = lang;
   localStorage.setItem('hub_lang', lang);
   document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
     if (I18N[lang] && I18N[lang][key]) el.textContent = I18N[lang][key];
@@ -8515,7 +8518,10 @@ function generateHubPDF() {
 // INIT
 // ══════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  const savedLang = localStorage.getItem('hub_lang') || localStorage.getItem('auditsym_shared_lang') || 'en';
+  // Real cross-page sync: the shared key (the most recent choice made on
+  // ANY of the three AuditSym pages) wins at load time — see the matching
+  // comment in landingPAge.html.
+  const savedLang = localStorage.getItem('auditsym_shared_lang') || localStorage.getItem('hub_lang') || 'en';
   setLanguage(savedLang);
   renderRoleToggle();
   loadState();
