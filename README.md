@@ -21,17 +21,19 @@
 
 ## 👥 Core Contributors
 
-AuditSym is actively developed and architected by:
+AuditSym is developed through a combination of product vision,
+audit methodology, hands-on engineering, and technical collaboration.
 
-#### 👩‍💻 Project Creator · Product Vision 
-**Susana Alba Santamaria** 
-UX · Audit Methodology · Product Vision 
-Cybersecurity & Audit-Focused Builder  
-sualba.dev@gmail.com
+#### 👩‍💻 Project Founder · Product & Audit Vision
 
-#### Main Collaborator & Architecture Contributor
+**Susana Alba Santamaria**  
+Product Strategy · Audit Methodology · UX · Cybersecurity & GRC · Core Development  
+📧 sualba.dev@gmail.com
+
+#### 👨‍💻 Core Technical Contributor · Architecture & Technical Review
+
 **Vandan Panwala**  
-Cybersecurity · Software Engineering & Contributor Core Engineering 
+Software Engineering · Cybersecurity · Architecture · Technical Review  
 🔗 [GitHub Profile](https://github.com/PanwalaVandan)
 
 ---

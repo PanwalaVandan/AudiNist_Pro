@@ -1283,6 +1283,277 @@ async function main() {
       }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    section('16. Structured Evidence Register — EVD-#### (issue #34)');
+    {
+      const ctx = await browser.newContext();
+      const page = await newPage(browser, ctx);
+
+      await page.evaluate(() => {
+        document.getElementById('empresa_auditada').value = 'EVD Registro Test Co';
+        document.getElementById('id_informe').value = 'AUD-EVD-REG';
+        document.getElementById('controls').innerHTML = '';
+        addControl(false, 'Q1', 'GOV-01', 'GOV-01', 'Governance Program', '');
+        addControl(false, 'Q2', 'AST-01', 'AST-01', 'Asset Governance', '');
+      });
+      await page.waitForTimeout(150);
+
+      // ── Add + sequential-per-audit numbering ──────────────────────────
+      await page.evaluate(() => {
+        const btn = document.querySelectorAll('.add-evidence-item-btn')[0];
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-type').value = 'system_export';
+        document.getElementById('evidence-item-source').value = 'Microsoft Entra ID';
+        document.getElementById('evidence-item-method').value = 'inspection';
+        document.getElementById('evidence-item-collected-by').value = 'Susana Alba';
+        saveEvidenceItem();
+      });
+      const firstItem = await page.evaluate(() => ({
+        id: getEvidenceItems(document.querySelectorAll('.control')[0])[0]?.id,
+        nextSeq: evidenceRegister.nextSequence,
+        type: getEvidenceItems(document.querySelectorAll('.control')[0])[0]?.type,
+      }));
+      check('First evidence item gets EVD-0001 and advances the counter to 2', firstItem.id === 'EVD-0001' && firstItem.nextSeq === 2, `got ${JSON.stringify(firstItem)}`);
+      check('The modal correctly saves the selected type (not blank — regression for the earlier "unevaluated template literal in static HTML" bug)', firstItem.type === 'system_export', `got "${firstItem.type}"`);
+
+      await page.evaluate(() => {
+        const btn = document.querySelectorAll('.add-evidence-item-btn')[1];
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-source').value = 'Second control evidence';
+        saveEvidenceItem();
+      });
+      const secondItemId = await page.evaluate(() => getEvidenceItems(document.querySelectorAll('.control')[1])[0]?.id);
+      check('An item added to a DIFFERENT control still continues the SAME audit-wide sequence (EVD-0002, not restarting per control)', secondItemId === 'EVD-0002', `got "${secondItemId}"`);
+
+      // ── Review: validate ────────────────────────────────────────────
+      await page.evaluate(() => { window.prompt = () => 'Luis Gómez'; });
+      await page.evaluate(() => reviewEvidenceItem(document.querySelectorAll('.control')[0], 'EVD-0001', 'validated'));
+      const afterValidate = await page.evaluate(() => getEvidenceItems(document.querySelectorAll('.control')[0])[0]);
+      check('Validating an item records status, reviewer identity, and timestamp',
+        afterValidate.validationStatus === 'validated' && afterValidate.reviewedBy === 'Luis Gómez' && !!afterValidate.reviewedAt);
+
+      // ── Review: reject requires a non-empty reason ───────────────────
+      await page.evaluate(() => { window.prompt = (m) => (window.__c1 = (window.__c1 || 0) + 1) === 1 ? 'Luis Gómez' : ''; });
+      await page.evaluate(() => reviewEvidenceItem(document.querySelectorAll('.control')[1], 'EVD-0002', 'rejected'));
+      const blockedRejection = await page.evaluate(() => getEvidenceItems(document.querySelectorAll('.control')[1])[0].validationStatus);
+      check('Rejecting with a blank reason is blocked — the item stays pending', blockedRejection === 'pending', `got "${blockedRejection}"`);
+
+      await page.evaluate(() => { window.prompt = (m) => (window.__c2 = (window.__c2 || 0) + 1) === 1 ? 'Luis Gómez' : 'Fuente no verificable.'; });
+      await page.evaluate(() => reviewEvidenceItem(document.querySelectorAll('.control')[1], 'EVD-0002', 'rejected'));
+      const afterReject = await page.evaluate(() => getEvidenceItems(document.querySelectorAll('.control')[1])[0]);
+      check('Rejecting with a real reason records validationStatus=rejected and the rejectionReason',
+        afterReject.validationStatus === 'rejected' && afterReject.rejectionReason === 'Fuente no verificable.');
+
+      // ── Withdrawal is a tombstone, never a physical delete ───────────
+      await page.evaluate(() => { window.prompt = (m) => (window.__c3 = (window.__c3 || 0) + 1) === 1 ? 'Susana Alba' : 'Duplicado de otro registro.'; });
+      await page.evaluate(() => withdrawEvidenceItemPrompt(document.querySelectorAll('.control')[0], 'EVD-0001'));
+      const afterWithdraw = await page.evaluate(() => {
+        const wrapper = document.querySelectorAll('.control')[0];
+        return { all: getEvidenceItems(wrapper), active: getActiveEvidenceItems(wrapper) };
+      });
+      check('A withdrawn item remains in the full list (tombstone), not physically deleted', afterWithdraw.all.length === 1);
+      check('...but is excluded from the active list', afterWithdraw.active.length === 0);
+      check('...with who/when/why recorded', afterWithdraw.all[0].status === 'withdrawn' && afterWithdraw.all[0].withdrawnBy === 'Susana Alba' && afterWithdraw.all[0].withdrawalReason === 'Duplicado de otro registro.');
+
+      // ── THE critical identifier-stability guarantee ──────────────────
+      await page.evaluate(() => {
+        const btn = document.querySelectorAll('.add-evidence-item-btn')[0];
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-source').value = 'Post-withdrawal evidence';
+        saveEvidenceItem();
+      });
+      const thirdItemId = await page.evaluate(() => getActiveEvidenceItems(document.querySelectorAll('.control')[0]).find(i => i.source === 'Post-withdrawal evidence')?.id);
+      check('A new item added after a withdrawal gets EVD-0003 — NEVER reuses the withdrawn EVD-0001', thirdItemId === 'EVD-0003', `got "${thirdItemId}"`);
+
+      await page.close(); await ctx.close();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    section('17. Evidence Register — persistence, round-trip, and import normalization (issue #34)');
+    {
+      const ctx = await browser.newContext();
+      const page = await newPage(browser, ctx);
+
+      await page.evaluate(() => {
+        document.getElementById('empresa_auditada').value = 'Persistence Co';
+        document.getElementById('id_informe').value = 'AUD-EVD-PERSIST-REG';
+        document.getElementById('controls').innerHTML = '';
+        addControl(false, 'Q1', 'GOV-01', 'GOV-01', 'Governance Program', '');
+        const btn = document.querySelectorAll('.add-evidence-item-btn')[0];
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-source').value = 'First evidence';
+        saveEvidenceItem();
+      });
+      await page.waitForTimeout(150);
+
+      const collected = await page.evaluate(() => collectAuditData());
+      check('collectAuditData() includes each control\'s evidenceItems', collected.controls[0].evidenceItems?.[0]?.id === 'EVD-0001');
+      check('collectAuditData() includes engagement.evidenceRegister.nextSequence', collected.engagement?.evidenceRegister?.nextSequence === 2, `got ${JSON.stringify(collected.engagement?.evidenceRegister)}`);
+
+      // Simulate a full reload from this exact saved JSON.
+      const roundTripResult = await page.evaluate((data) => {
+        document.getElementById('controls').innerHTML = '';
+        applyEngagement(data);
+        data.controls.forEach(c => {
+          addControl(false, c.question || '', c.scfId || '', c.fwCode, (c.ctrl || '').split(' – ')[1] || '', '', true);
+          const wrapper = document.querySelectorAll('.control')[document.querySelectorAll('.control').length - 1];
+          wrapper.querySelector('.cumple').value = c.cumple || '';
+          wrapper.querySelector('.evidencia').value = c.evidencia || '';
+          wrapper.evidenceItems = Array.isArray(c.evidenceItems) ? c.evidenceItems : [];
+          renderEvidenceItemsList(wrapper);
+        });
+        normalizeEvidenceRegisterCounter();
+        return {
+          items: getEvidenceItems(document.querySelectorAll('.control')[0]).map(i => i.id),
+          nextSeq: evidenceRegister.nextSequence,
+        };
+      }, collected);
+      check('Evidence items survive a full save/reload round-trip', JSON.stringify(roundTripResult.items) === JSON.stringify(['EVD-0001']));
+      check('The counter is correctly restored after reload', roundTripResult.nextSeq === 2, `got ${roundTripResult.nextSeq}`);
+
+      // Legacy import: evidenceItems present, but NO evidenceRegister at all
+      // (a hypothetical export from before this counter field existed).
+      const legacyData = JSON.parse(JSON.stringify(collected));
+      delete legacyData.engagement.evidenceRegister;
+      const legacyResult = await page.evaluate((data) => {
+        document.getElementById('controls').innerHTML = '';
+        applyEngagement(data);
+        data.controls.forEach(c => {
+          addControl(false, c.question || '', c.scfId || '', c.fwCode, (c.ctrl || '').split(' – ')[1] || '', '', true);
+          const wrapper = document.querySelectorAll('.control')[document.querySelectorAll('.control').length - 1];
+          wrapper.evidenceItems = Array.isArray(c.evidenceItems) ? c.evidenceItems : [];
+          renderEvidenceItemsList(wrapper);
+        });
+        normalizeEvidenceRegisterCounter();
+        return evidenceRegister.nextSequence;
+      }, legacyData);
+      check('Importing an audit with evidence but NO stored counter derives it correctly (highest existing + 1)', legacyResult === 2, `got ${legacyResult}`);
+
+      // Stale stored counter LOWER than what's needed — must self-correct,
+      // never allow a collision.
+      const staleData = JSON.parse(JSON.stringify(collected));
+      staleData.engagement.evidenceRegister = { nextSequence: 1 };
+      const staleResult = await page.evaluate((data) => {
+        document.getElementById('controls').innerHTML = '';
+        applyEngagement(data);
+        data.controls.forEach(c => {
+          addControl(false, c.question || '', c.scfId || '', c.fwCode, (c.ctrl || '').split(' – ')[1] || '', '', true);
+          const wrapper = document.querySelectorAll('.control')[document.querySelectorAll('.control').length - 1];
+          wrapper.evidenceItems = Array.isArray(c.evidenceItems) ? c.evidenceItems : [];
+          renderEvidenceItemsList(wrapper);
+        });
+        normalizeEvidenceRegisterCounter();
+        return evidenceRegister.nextSequence;
+      }, staleData);
+      check('A stale stored counter (lower than needed) self-corrects on import — never allowed to risk reissuing EVD-0001', staleResult === 2, `got ${staleResult}`);
+
+      // Backward compatibility: an audit with no evidenceItems / no
+      // evidenceRegister at all (pre-#34 export) must import cleanly.
+      const preExistingData = JSON.parse(JSON.stringify(collected));
+      preExistingData.controls.forEach(c => { delete c.evidenceItems; });
+      delete preExistingData.engagement.evidenceRegister;
+      const preExistingResult = await page.evaluate((data) => {
+        document.getElementById('controls').innerHTML = '';
+        applyEngagement(data);
+        data.controls.forEach(c => {
+          addControl(false, c.question || '', c.scfId || '', c.fwCode, (c.ctrl || '').split(' – ')[1] || '', '', true);
+          const wrapper = document.querySelectorAll('.control')[document.querySelectorAll('.control').length - 1];
+          wrapper.evidenceItems = Array.isArray(c.evidenceItems) ? c.evidenceItems : [];
+          renderEvidenceItemsList(wrapper);
+        });
+        normalizeEvidenceRegisterCounter();
+        return { nextSeq: evidenceRegister.nextSequence, items: getEvidenceItems(document.querySelectorAll('.control')[0]) };
+      }, preExistingData);
+      check('An audit with no evidenceItems/evidenceRegister at all (pre-#34) imports cleanly with an empty evidence list and a fresh counter',
+        preExistingResult.items.length === 0 && preExistingResult.nextSeq === 1, `got ${JSON.stringify(preExistingResult)}`);
+
+      await page.close(); await ctx.close();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    section('18. Evidence Register — PDF rendering and edit-lock behavior (issue #34)');
+    {
+      const ctx = await browser.newContext({ acceptDownloads: true });
+      const page = await newPage(browser, ctx);
+
+      await page.evaluate(() => {
+        document.getElementById('empresa_auditada').value = 'PDF EVD Test Co';
+        document.getElementById('empresa_auditora').value = 'Firm';
+        document.getElementById('auditor').value = 'Susana Alba';
+        document.getElementById('id_informe').value = 'AUD-EVD-PDF-REG';
+        document.getElementById('doc_author').value = 'Susana Alba';
+        document.getElementById('doc_version').value = '1.0';
+        approvals.policy = 'none';
+        document.getElementById('controls').innerHTML = '';
+        addControl(false, 'Q1', 'GOV-01', 'GOV-01', 'Governance Program', '');
+        const blk = document.querySelector('.control');
+        blk.querySelector('.cumple').value = 'no';
+        blk.querySelector('.cumple').dispatchEvent(new Event('change'));
+        blk.querySelector('.riesgo').value = 'high';
+        blk.querySelector('.evidencia').value = 'Evidencia de prueba.';
+      });
+      await page.waitForTimeout(150);
+      await page.evaluate(() => {
+        const btn = document.querySelectorAll('.add-evidence-item-btn')[0];
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-type').value = 'document';
+        document.getElementById('evidence-item-source').value = 'Política de Gobierno v2.1';
+        document.getElementById('evidence-item-method').value = 'inspection';
+        document.getElementById('evidence-item-result').value = 'No se encontró aprobación formal.';
+        saveEvidenceItem();
+      });
+      await page.evaluate(() => {
+        const btn = document.querySelectorAll('.add-evidence-item-btn')[0];
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-source').value = 'SHOULD-NOT-APPEAR-WITHDRAWN';
+        saveEvidenceItem();
+      });
+      await page.evaluate(() => {
+        window.prompt = (m) => (window.__c4 = (window.__c4 || 0) + 1) === 1 ? 'Susana Alba' : 'Duplicado.';
+      });
+      await page.evaluate(() => withdrawEvidenceItemPrompt(document.querySelector('.control'), 'EVD-0002'));
+      await page.waitForTimeout(100);
+
+      const jspdfAvailable = await page.waitForFunction(() => !!window.jspdf, { timeout: 5000 }).then(() => true).catch(() => false);
+      if (jspdfAvailable) {
+        const [download] = await Promise.all([
+          page.waitForEvent('download', { timeout: 15000 }),
+          page.evaluate(() => generatePDF()),
+        ]);
+        const pdfPath = path.join(os.tmpdir(), `regression_evd_pdf_${Date.now()}.pdf`);
+        await download.saveAs(pdfPath);
+        // Basic presence check via the same pdftotext helper pattern used
+        // in section 15, kept local here to avoid a hard dependency for
+        // this one check if poppler isn't installed.
+        let extractedText = '';
+        try {
+          extractedText = execFileSync('pdftotext', [pdfPath, '-'], { encoding: 'utf-8' });
+        } catch (e) { /* poppler not installed — skip content assertions below */ }
+        if (extractedText) {
+          check('The active evidence item (EVD-0001) appears in the PDF annex', extractedText.includes('EVD-0001') && extractedText.includes('Política de Gobierno v2.1'));
+          check('The withdrawn evidence item (EVD-0002) does NOT appear anywhere in the PDF', !extractedText.includes('SHOULD-NOT-APPEAR-WITHDRAWN'));
+        } else {
+          console.log('  ⚠️  pdftotext not available — skipping PDF content assertions for this section.');
+        }
+        fs.unlinkSync(pdfPath);
+      } else {
+        console.log('  ⚠️  jsPDF unavailable (no internet access in this environment) — skipping the PDF rendering check.');
+      }
+
+      // Edit-lock: once issued, the add/review/withdraw actions must be blocked.
+      await page.evaluate(() => issueFinalReport());
+      await page.waitForTimeout(150);
+      const lockedState = await page.evaluate(() => ({
+        addBtnDisabled: document.querySelector('.add-evidence-item-btn')?.disabled,
+        actionButtonsGone: document.querySelector('.evidence-items-list').innerHTML.includes('Retirar') === false,
+      }));
+      check('The "+ Añadir Evidencia" button is disabled once the audit is issued/locked', lockedState.addBtnDisabled === true);
+      check('Per-item action buttons (Retirar, etc.) disappear from the rendered list once locked', lockedState.actionButtonsGone);
+
+      await page.close();
+      await ctx.close();
+    }
+
   } finally {
     await browser.close();
     server.close();

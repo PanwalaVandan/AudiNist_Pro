@@ -1585,12 +1585,19 @@ function loadAuditById(key) {
     autoGrowTextarea(wrapper.querySelector('.evidencia'));
     wrapper.querySelector('.notes').value = c.notes || '';
     autoGrowTextarea(wrapper.querySelector('.notes'));
+    // Issue #34: restore this control's structured evidence items (if
+    // any) and render them — addControl() always starts a fresh control
+    // with an empty array, since it has no way to know a saved one is
+    // about to be restored right after.
+    wrapper.evidenceItems = Array.isArray(c.evidenceItems) ? c.evidenceItems : [];
+    renderEvidenceItemsList(wrapper);
     // Setting .value directly doesn't fire 'change', so the styling that
     // normally happens live in onComplianceChange has to be applied here
     // explicitly — otherwise a reloaded audit shows every control in the
     // same neutral color regardless of its actual evaluated status.
     applyComplianceStyling(wrapper, c.cumple || '');
   });
+  normalizeEvidenceRegisterCounter();
 
   data.controls?.forEach(c => {
     if (c.scfId && c.cumple) {
@@ -2065,6 +2072,18 @@ class="px-2.5 py-1 bg-cyberwarn text-black rounded hover:bg-yellow-400 text-xs f
 <textarea class="evidencia w-full p-3 rounded bg-gray-800 border border-gray-600 text-gray-100 text-base leading-relaxed resize-y focus:outline-none focus:border-cyberaccent"
 rows="4" style="min-height:100px;" spellcheck="true" lang="es" placeholder="${T('evidence_ph')}" oninput="toggleValidateBtn(this); autoGrowTextarea(this); updateNAEvidenceWarning(this);"></textarea>
 <p class="na-evidence-warning hidden text-xs text-cyberwarn mt-1">⚠ ${T('na_evidence_required')}</p>
+</div>
+
+<!-- Issue #34: structured evidence register (EVD-####) — an optional
+     layer alongside the free-text evidence above, not a replacement.
+     evidence-items-list is populated by renderEvidenceItemsList(); this
+     control starts with none, same as every other field here. -->
+<div class="field-group">
+<div class="flex items-center justify-between mb-1.5">
+<label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold">${T('evidence_register_label')}</label>
+<button type="button" onclick="openAddEvidenceItemModal(this)" class="add-evidence-item-btn text-xs px-2 py-1 bg-cyberaccent/20 hover:bg-cyberaccent/30 text-cyberaccent rounded font-medium">+ ${T('evidence_register_add_btn')}</button>
+</div>
+<div class="evidence-items-list space-y-2"></div>
 </div>
 </div>
 `;
@@ -2948,6 +2967,205 @@ function defaultApprovals() {
 }
 let approvals = defaultApprovals();
 
+// ═════════════════════════════════════════════════════════════════════════
+// Issue #34: Structured Evidence Register (EVD-####)
+// ═════════════════════════════════════════════════════════════════════════
+// evidenceRegister.nextSequence is the ONE audit-level counter every
+// EVD-#### id is assigned from. It lives here, not inside any control's
+// evidenceItems array, precisely because evidenceItems are nested per
+// control — scanning them for "the highest number in use" would let a
+// withdrawn/deleted EVD-0003 get silently reissued to a new, unrelated
+// item the next time one is added. The counter only ever increases.
+let evidenceRegister = { nextSequence: 1 };
+
+const EVIDENCE_TYPES = ['document', 'screenshot', 'system_export', 'interview', 'log', 'other'];
+const EVIDENCE_METHODS = ['inspection', 'observation', 'reperformance', 'inquiry', 'analytical_procedure'];
+
+function nextEvidenceId() {
+  const id = `EVD-${String(evidenceRegister.nextSequence).padStart(4, '0')}`;
+  evidenceRegister.nextSequence++;
+  return id;
+}
+
+// Every control's evidenceItems array lives as a plain JS property on its
+// wrapper element (wrapper.evidenceItems), not as an HTML attribute —
+// same reasoning as approvals/history: this is structured data, not
+// display text, and stuffing a JSON blob into a data-* attribute would
+// just mean parsing it back out on every read for no benefit. It does NOT
+// survive re-serializing the wrapper's innerHTML, so every code path that
+// rebuilds a control's DOM (addControl, addControlFromJSON) must restore
+// it explicitly — see those functions.
+function getEvidenceItems(wrapper) {
+  return wrapper.evidenceItems || (wrapper.evidenceItems = []);
+}
+// Only what the UI/PDF should ever normally show — a withdrawn item is a
+// tombstone kept for the audit trail, not something that should keep
+// appearing in the working evidence list.
+function getActiveEvidenceItems(wrapper) {
+  return getEvidenceItems(wrapper).filter(e => e.status !== 'withdrawn');
+}
+
+// Called once, after ALL controls have been rebuilt in the DOM and had
+// their evidenceItems restored (loadAuditById / importFromJSON) — never
+// during applyEngagement() itself, since no control's evidenceItems exist
+// yet at that point in the load sequence.
+//
+// Per issue #34's import-normalization rule: never let the counter fall
+// BELOW what's actually needed to avoid reissuing an id already in use.
+// Uses the greater of the restored stored value and (highest existing
+// EVD-#### sequence found across every control + 1) — so an older export
+// that predates this counter, or one that's simply stale relative to
+// evidence added since, both self-correct instead of risking a collision.
+function normalizeEvidenceRegisterCounter() {
+  let highestSeen = 0;
+  document.querySelectorAll('.control').forEach(blk => {
+    getEvidenceItems(blk).forEach(item => {
+      const m = /^EVD-(\d+)$/.exec(item?.id || '');
+      if (m) highestSeen = Math.max(highestSeen, parseInt(m[1], 10));
+    });
+  });
+  const derivedFromEvidence = highestSeen + 1;
+  const storedValue = Number.isFinite(evidenceRegister?.nextSequence) ? evidenceRegister.nextSequence : 1;
+  evidenceRegister.nextSequence = Math.max(storedValue, derivedFromEvidence);
+}
+
+// Which control's evidenceItems array the modal's Save button writes
+// into — set by openAddEvidenceItemModal, cleared on close. Same pattern
+// as focusModeSourceTextarea above: one shared modal, a variable
+// remembering which element opened it.
+let evidenceModalTargetWrapper = null;
+
+function openAddEvidenceItemModal(btn) {
+  const wrapper = btn.closest('.control');
+  if (!wrapper) return;
+  if (isAuditLocked()) { alert('🔒 ' + T('locked_action_blocked')); return; }
+  evidenceModalTargetWrapper = wrapper;
+  document.getElementById('evidence-item-type').value = 'document';
+  document.getElementById('evidence-item-source').value = '';
+  document.getElementById('evidence-item-method').value = 'inspection';
+  document.getElementById('evidence-item-test').value = '';
+  document.getElementById('evidence-item-result').value = '';
+  document.getElementById('evidence-item-collected-by').value = document.getElementById('auditor')?.value || '';
+  document.getElementById('evidence-item-collected-at').value = new Date().toISOString().slice(0, 10);
+  const modal = document.getElementById('evidence-item-modal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeEvidenceItemModal() {
+  evidenceModalTargetWrapper = null;
+  const modal = document.getElementById('evidence-item-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function saveEvidenceItem() {
+  if (!evidenceModalTargetWrapper) return;
+  const wrapper = evidenceModalTargetWrapper;
+  const item = {
+    id: nextEvidenceId(),
+    controlId: wrapper.querySelector('.ctrl')?.dataset?.scfId || '',
+    type: document.getElementById('evidence-item-type').value,
+    source: document.getElementById('evidence-item-source').value.trim(),
+    method: document.getElementById('evidence-item-method').value,
+    testPerformed: document.getElementById('evidence-item-test').value.trim(),
+    result: document.getElementById('evidence-item-result').value.trim(),
+    collectedAt: document.getElementById('evidence-item-collected-at').value,
+    collectedBy: document.getElementById('evidence-item-collected-by').value.trim(),
+    validationStatus: 'pending',
+    reviewedAt: null, reviewedBy: null, reviewNotes: '', rejectionReason: '',
+    status: 'active', withdrawnAt: null, withdrawnBy: null, withdrawalReason: null
+  };
+  getEvidenceItems(wrapper).push(item);
+  isDirty = true;
+  renderEvidenceItemsList(wrapper);
+  closeEvidenceItemModal();
+}
+
+// Issue #34: a review carries identity + timestamp whether it CONFIRMS or
+// REJECTS the item — "validated" would be semantically backwards for a
+// rejected one, hence reviewedBy/reviewedAt/reviewNotes apply to both, with
+// rejectionReason required (non-empty) specifically for rejection.
+function reviewEvidenceItem(wrapper, evidenceId, decision) {
+  if (isAuditLocked()) { alert('🔒 ' + T('locked_action_blocked')); return; }
+  const item = getEvidenceItems(wrapper).find(e => e.id === evidenceId);
+  if (!item) return;
+  const reviewerName = prompt(T('evidence_reviewer_name_prompt'));
+  if (reviewerName === null) return;
+  if (!reviewerName.trim()) { alert('🛑 ' + T('approval_reason_required')); return; }
+  let rejectionReason = '';
+  if (decision === 'rejected') {
+    rejectionReason = prompt(T('evidence_reject_reason_prompt'));
+    if (rejectionReason === null) return;
+    if (!rejectionReason.trim()) { alert('🛑 ' + T('approval_reason_required')); return; }
+  }
+  item.validationStatus = decision;
+  item.reviewedAt = new Date().toISOString();
+  item.reviewedBy = reviewerName.trim();
+  item.rejectionReason = decision === 'rejected' ? rejectionReason.trim() : '';
+  isDirty = true;
+  renderEvidenceItemsList(wrapper);
+}
+
+// Logical withdrawal, never a physical delete — see issue #34's "Evidence
+// removal is auditable" design: the item stays in the data as a tombstone,
+// just excluded from the active list getActiveEvidenceItems() returns.
+function withdrawEvidenceItemPrompt(wrapper, evidenceId) {
+  if (isAuditLocked()) { alert('🔒 ' + T('locked_action_blocked')); return; }
+  const item = getEvidenceItems(wrapper).find(e => e.id === evidenceId);
+  if (!item) return;
+  const withdrawnBy = prompt(T('evidence_withdrawn_by_prompt'));
+  if (withdrawnBy === null) return;
+  if (!withdrawnBy.trim()) { alert('🛑 ' + T('approval_reason_required')); return; }
+  const reason = prompt(T('evidence_withdraw_reason_prompt'));
+  if (reason === null) return;
+  if (!reason.trim()) { alert('🛑 ' + T('approval_reason_required')); return; }
+  item.status = 'withdrawn';
+  item.withdrawnAt = new Date().toISOString();
+  item.withdrawnBy = withdrawnBy.trim();
+  item.withdrawalReason = reason.trim();
+  isDirty = true;
+  renderEvidenceItemsList(wrapper);
+}
+
+const EVIDENCE_STATUS_BADGE = {
+  pending: { cls: 'bg-yellow-900/40 text-yellow-300 border-yellow-700', key: 'evidence_status_pending' },
+  validated: { cls: 'bg-green-900/40 text-green-300 border-green-700', key: 'evidence_status_validated' },
+  rejected: { cls: 'bg-red-900/40 text-red-300 border-red-700', key: 'evidence_status_rejected' }
+};
+
+function renderEvidenceItemsList(wrapper) {
+  const container = wrapper.querySelector('.evidence-items-list');
+  if (!container) return;
+  const items = getActiveEvidenceItems(wrapper);
+  const locked = isAuditLocked();
+  container.innerHTML = items.map(item => {
+    const badge = EVIDENCE_STATUS_BADGE[item.validationStatus] || EVIDENCE_STATUS_BADGE.pending;
+    const reviewActions = (!locked && item.validationStatus === 'pending') ? `
+      <button type="button" onclick="reviewEvidenceItem(this.closest('.control'), '${item.id}', 'validated')" class="text-[10px] px-1.5 py-0.5 bg-green-700/60 hover:bg-green-600 text-white rounded">${T('evidence_validate_btn')}</button>
+      <button type="button" onclick="reviewEvidenceItem(this.closest('.control'), '${item.id}', 'rejected')" class="text-[10px] px-1.5 py-0.5 bg-red-700/60 hover:bg-red-600 text-white rounded">${T('evidence_reject_btn')}</button>
+    ` : '';
+    const withdrawAction = !locked ? `<button type="button" onclick="withdrawEvidenceItemPrompt(this.closest('.control'), '${item.id}')" class="text-[10px] px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded">${T('evidence_withdraw_btn')}</button>` : '';
+    return `
+      <div class="p-2.5 bg-gray-900/60 border border-gray-700 rounded text-xs">
+        <div class="flex items-center justify-between flex-wrap gap-1">
+          <div class="flex items-center gap-2">
+            <span class="font-mono font-bold text-cyberaccent">${escapeHTML(item.id)}</span>
+            <span class="px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase ${badge.cls}">${T(badge.key)}</span>
+            <span class="text-gray-400">${escapeHTML(T('evidence_type_' + item.type) || item.type)}</span>
+          </div>
+          <div class="flex items-center gap-1">${reviewActions}${withdrawAction}</div>
+        </div>
+        ${item.source ? `<p class="mt-1 text-gray-300"><span class="text-gray-500">${T('evidence_source_label')}:</span> ${escapeHTML(item.source)}</p>` : ''}
+        ${item.testPerformed ? `<p class="mt-0.5 text-gray-300"><span class="text-gray-500">${T('evidence_test_label')}:</span> ${escapeHTML(item.testPerformed)}</p>` : ''}
+        ${item.result ? `<p class="mt-0.5 text-gray-300"><span class="text-gray-500">${T('evidence_result_label')}:</span> ${escapeHTML(item.result)}</p>` : ''}
+        ${item.validationStatus === 'rejected' && item.rejectionReason ? `<p class="mt-0.5 text-red-300"><span class="text-gray-500">${T('evidence_reject_reason_prompt')}:</span> ${escapeHTML(item.rejectionReason)}</p>` : ''}
+        <p class="mt-1 text-[10px] text-gray-500">${escapeHTML(item.collectedBy || '—')} · ${escapeHTML(item.collectedAt || '—')}${item.reviewedBy ? ` · ${T('evidence_reviewer_name_prompt')}: ${escapeHTML(item.reviewedBy)}` : ''}</p>
+      </div>`;
+  }).join('');
+}
+
+
 // Issue #1 (audit-handoff): which version's post-issuance download panel
 // is currently showing, if any. null whenever that panel should be
 // hidden — a fresh page load, a different/new audit, or a reopened audit
@@ -3118,7 +3336,7 @@ function buildApprovalRow(roleKey, roleLabel, designatedName, designatedOrgRole,
   const st = statusMap[a.status] || statusMap.pending;
   let actionsHtml = '';
   if (!locked) {
-    if (a.status === 'pending' || a.status === 'rejected' || a.status === 'revoked') {
+    if (a.status === 'pending' || a.status === 'rejected') {
       const label = roleKey === 'reviewer' ? T('approval_action_approve_review') : T('approval_action_approve_issuance');
       actionsHtml = `<button type="button" onclick="approveRole('${roleKey}')" class="px-2 py-0.5 bg-cyberok text-black rounded text-[10px] font-bold hover:bg-green-400">${escapeHTML(label)}</button>
         <button type="button" onclick="rejectApproval('${roleKey}')" class="px-2 py-0.5 bg-cyberevil text-white rounded text-[10px] font-bold hover:bg-red-500">${T('approval_action_reject')}</button>`;
@@ -3152,10 +3370,7 @@ function approveRole(roleKey) {
   const roleField = roleKey === 'reviewer' ? 'doc_reviewer_role' : 'doc_approver_role';
   const name = document.getElementById(nameField)?.value?.trim() || '';
   const orgRole = document.getElementById(roleField)?.value?.trim() || '';
-  // Default must match issueFinalReport()'s versionToIssue default ('1.0'),
-  // or an approval granted with the version field left blank is stamped ''
-  // and never matches the '1.0' the issue check computes.
-  const version = document.getElementById('doc_version')?.value?.trim() || '1.0';
+  const version = document.getElementById('doc_version')?.value?.trim() || '';
 
   if (!name || !orgRole) {
     alert('🛑 ' + T('approval_missing_identity').replace('{field}', roleKey === 'reviewer' ? T('doc_reviewer_label') : T('doc_approver_label')));
@@ -3463,7 +3678,11 @@ approvalHistory: approvalHistory,
 // file, so an edited JSON can't falsely claim more independence than the
 // CURRENT designated people/policy actually provide.
 approvalGovernance: computeApprovalGovernance()
-}
+},
+// Issue #34: lives alongside docControl, not inside it — this is the
+// audit-level counter every EVD-#### id is drawn from, independent of
+// which evidenceItems currently exist on any control.
+evidenceRegister: evidenceRegister
 };
 }
 
@@ -3534,6 +3753,14 @@ function applyEditLock() {
   // what the issued report says.
   document.querySelectorAll('#controls input, #controls select, #controls textarea, #controls button')
     .forEach(el => { el.disabled = locked; });
+
+  // Issue #34: the evidence-item list's own action buttons (Validar/
+  // Rechazar/Retirar) are generated dynamically by renderEvidenceItemsList,
+  // which itself checks isAuditLocked() and omits them entirely when
+  // locked — but that only takes effect on the NEXT render. Re-rendering
+  // here ensures locking mid-session (i.e. right after Emitir) removes
+  // them immediately, not just on a future reload.
+  document.querySelectorAll('.control').forEach(renderEvidenceItemsList);
 
   // Toolbar actions that would add or regenerate content. Viewing actions
   // (Expandir/Colapsar, PDF, Exportar JSON, Importar JSON) deliberately
@@ -3729,6 +3956,14 @@ versionSnapshots = (dc.versionSnapshots && typeof dc.versionSnapshots === 'objec
 // approver identity or pretending a decision was ever made.
 approvals = (dc.approvals && typeof dc.approvals === 'object') ? dc.approvals : defaultApprovals();
 approvalHistory = Array.isArray(dc.approvalHistory) ? dc.approvalHistory : [];
+// Issue #34: restored here as-is; the FULL normalization (never letting
+// this fall below the highest EVD-#### id actually present across
+// controls) happens separately, after the controls themselves are
+// rebuilt from the DOM further down the load/import flow — evidenceItems
+// aren't restored onto any control yet at this point in applyEngagement().
+evidenceRegister = (eng.evidenceRegister && typeof eng.evidenceRegister === 'object' && Number.isFinite(eng.evidenceRegister.nextSequence))
+  ? { nextSequence: eng.evidenceRegister.nextSequence }
+  : { nextSequence: 1 };
 renderVersionHistoryRows();
 renderApprovalTable();
 renderTeamRows(eng.team || []);
@@ -3806,7 +4041,10 @@ function collectAuditData() {
       cumple: blk.querySelector('.cumple')?.value,
       riesgo: blk.querySelector('.riesgo')?.value,
       evidencia: blk.querySelector('.evidencia')?.value,
-      notes: blk.querySelector('.notes')?.value
+      notes: blk.querySelector('.notes')?.value,
+      // Issue #34: structured evidence lives alongside the free-text
+      // evidencia field above, never replacing it.
+      evidenceItems: getEvidenceItems(blk)
     });
   });
 
@@ -4348,10 +4586,14 @@ wrapper.querySelector('.riesgo').addEventListener('change', (e) => {
 wrapper.querySelector('.evidencia').value = c.evidencia || '';
 toggleValidateBtn(wrapper.querySelector('.evidencia'));
 wrapper.querySelector('.notes').value = c.notes || '';
+// Issue #34: same restoration as loadAuditById.
+wrapper.evidenceItems = Array.isArray(c.evidenceItems) ? c.evidenceItems : [];
+renderEvidenceItemsList(wrapper);
 // Same as loadAuditById: a directly-assigned .value never fires 'change',
 // so the compliance-status coloring has to be applied explicitly here too.
 applyComplianceStyling(wrapper, c.cumple || '');
 });
+normalizeEvidenceRegisterCounter();
 
 updateAll();
 // Same gap as loadAuditById: these controls were rebuilt AFTER
@@ -5672,7 +5914,11 @@ function generatePDF(overrideFilename, sourceSnapshot = null) {
         evidence, notes, question: c.question || '',
         hasEvidence: !!evidence.trim() && evidence.trim().toLowerCase() !== 'no evidence provided',
         hasNotes: !!notes.trim(),
-        domain: domainOf(code)
+        domain: domainOf(code),
+        // Issue #34: already frozen into the snapshot by collectAuditData()
+        // at issuance time — a withdrawn item stays out of the PDF the
+        // same way it stays out of the live UI's active list.
+        evidenceItems: (c.evidenceItems || []).filter(e => e.status !== 'withdrawn')
       };
     }) : controlBlocks.map((blk, idx) => {
       const ctrlInput = blk.querySelector('.ctrl');
@@ -5697,7 +5943,9 @@ function generatePDF(overrideFilename, sourceSnapshot = null) {
         evidence, notes, question,
         hasEvidence: !!evidence.trim() && evidence.trim().toLowerCase() !== 'no evidence provided',
         hasNotes: !!notes.trim(),
-        domain: domainOf(code)
+        domain: domainOf(code),
+        // Issue #34: same active-only filter as the snapshot path above.
+        evidenceItems: getActiveEvidenceItems(blk)
       };
     });
 
@@ -6806,6 +7054,64 @@ function scopeSection(title, body, color) {
 );
         y += 8;
 
+        // Issue #34: structured evidence register — alongside the
+        // free-text evidence above, never replacing it. Fixed Spanish
+        // labels, matching this whole annex's convention (the PDF doesn't
+        // localize dynamically via T() the way the on-screen UI does).
+        if (c.evidenceItems && c.evidenceItems.length) {
+          const EVD_TYPE_ES = { document: 'Documento', screenshot: 'Captura de Pantalla', system_export: 'Exportación de Sistema', interview: 'Entrevista', log: 'Registro (Log)', other: 'Otro' };
+          const EVD_METHOD_ES = { inspection: 'Inspección', observation: 'Observación', reperformance: 'Reejecución', inquiry: 'Indagación', analytical_procedure: 'Procedimiento Analítico' };
+          const EVD_STATUS_ES = { pending: 'Pendiente', validated: 'Validada', rejected: 'Rechazada' };
+          const EVD_STATUS_COLOR = { pending: COLORS.warning, validated: COLORS.success, rejected: COLORS.danger };
+          c.evidenceItems.forEach(item => {
+            const lines = [];
+            const detailParts = [EVD_TYPE_ES[item.type] || item.type, EVD_METHOD_ES[item.method] || item.method].filter(Boolean).join(' · ');
+            if (item.source) lines.push(`Fuente: ${item.source}`);
+            if (item.testPerformed) lines.push(`Prueba Realizada: ${item.testPerformed}`);
+            if (item.result) lines.push(`Resultado: ${item.result}`);
+            const footer = [item.collectedBy, item.collectedAt].filter(Boolean).join(' · ');
+
+            doc.setFont('Roboto', 'normal').setFontSize(7.5);
+            const wrappedLines = lines.flatMap(l => doc.splitTextToSize(pdfSafe(l), pageWidth - 2*margin - 44));
+            const boxH = 16 + wrappedLines.length * 9.5 + (footer ? 10 : 0);
+            if (y + boxH > pageHeight - 60) { doc.addPage(); y = drawContinuationHeader('Anexo · Evidencia Detallada'); }
+
+            doc.setFillColor(240, 249, 255);
+            doc.setDrawColor(191, 219, 254);
+            doc.roundedRect(margin + 12, y, pageWidth - 2*margin - 24, boxH, 3, 3, 'FD');
+
+            doc.setFont('Roboto', 'bold').setFontSize(8);
+            doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+            txt(item.id, margin + 20, y + 11);
+            const idWidth = doc.getTextWidth(pdfSafe(item.id));
+
+            const statusCol = EVD_STATUS_COLOR[item.validationStatus] || COLORS.textLight;
+            doc.setFillColor(statusCol[0], statusCol[1], statusCol[2]);
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(6.5);
+            const statusLabel = EVD_STATUS_ES[item.validationStatus] || item.validationStatus;
+            const statusW = doc.getTextWidth(pdfSafe(statusLabel)) + 8;
+            doc.roundedRect(margin + 20 + idWidth + 8, y + 4, statusW, 9, 2, 2, 'F');
+            txt(statusLabel, margin + 20 + idWidth + 8 + statusW/2, y + 10.5, { align: 'center' });
+
+            doc.setFont('Roboto', 'italic').setFontSize(7.5);
+            doc.setTextColor(...COLORS.textLight);
+            txt(detailParts, pageWidth - margin - 20, y + 11, { align: 'right' });
+
+            let iy = y + 20;
+            doc.setFont('Roboto', 'normal').setFontSize(7.5);
+            doc.setTextColor(COLORS.text[0], COLORS.text[1], COLORS.text[2]);
+            wrappedLines.forEach(l => { txt(l, margin + 20, iy); iy += 9.5; });
+            if (footer) {
+              doc.setFont('Roboto', 'italic').setFontSize(7);
+              doc.setTextColor(...COLORS.textLight);
+              txt(footer, margin + 20, iy + 2);
+            }
+            y += boxH + 6;
+          });
+          y += 4;
+        }
+
         doc.setDrawColor(226, 232, 240);
         doc.line(margin + 8, y - 6, pageWidth - margin - 8, y - 6);
 
@@ -7514,6 +7820,40 @@ library_loaded:'Biblioteca cargada',
 validate_draft_btn:'Validar Borrador', ia_evidence_btn:'IA Evidencia',
 dash_not_applicable:'No Aplicable 🚫',
 na_evidence_required:'Se requiere una justificación en Evidencia cuando un control se marca como No Aplicable.',
+evidence_register_label:'Registro de Evidencia',
+evidence_register_add_btn:'Añadir Evidencia',
+evidence_modal_title:'Nueva Evidencia Estructurada',
+evidence_type_label:'Tipo',
+evidence_source_label:'Fuente',
+evidence_source_ph:'p. ej. Microsoft Entra ID, contrato firmado...',
+evidence_method_label:'Método',
+evidence_test_label:'Prueba Realizada',
+evidence_result_label:'Resultado',
+evidence_collected_by_label:'Recopilado por',
+evidence_collected_at_label:'Fecha de Recopilación',
+evidence_save_btn:'Guardar',
+evidence_cancel_btn:'Cancelar',
+evidence_validate_btn:'Validar',
+evidence_reject_btn:'Rechazar',
+evidence_withdraw_btn:'Retirar',
+evidence_reviewer_name_prompt:'¿Quién realiza esta revisión?',
+evidence_reject_reason_prompt:'Motivo del rechazo (obligatorio):',
+evidence_withdrawn_by_prompt:'¿Quién retira esta evidencia?',
+evidence_withdraw_reason_prompt:'Motivo de la retirada (obligatorio):',
+evidence_type_document:'Documento',
+evidence_type_screenshot:'Captura de Pantalla',
+evidence_type_system_export:'Exportación de Sistema',
+evidence_type_interview:'Entrevista',
+evidence_type_log:'Registro (Log)',
+evidence_type_other:'Otro',
+evidence_method_inspection:'Inspección',
+evidence_method_observation:'Observación',
+evidence_method_reperformance:'Reejecución',
+evidence_method_inquiry:'Indagación',
+evidence_method_analytical_procedure:'Procedimiento Analítico',
+evidence_status_pending:'Pendiente',
+evidence_status_validated:'Validada',
+evidence_status_rejected:'Rechazada',
 issue_blocked_missing_evidence:'No se puede emitir el informe: los siguientes controles tienen un veredicto de cumplimiento (Cumple, Parcial o No Cumple) pero carecen de evidencia registrada:',
 compliance_not_calculated:'Sin controles aplicables evaluados',
 template_library_btn:'📚 Biblioteca',
@@ -7694,6 +8034,40 @@ library_loaded:'Library loaded',
 validate_draft_btn:'Validate Draft', ia_evidence_btn:'AI Evidence',
 dash_not_applicable:'Not Applicable 🚫',
 na_evidence_required:'A justification in Evidence is required when a control is marked Not Applicable.',
+evidence_register_label:'Evidence Register',
+evidence_register_add_btn:'Add Evidence',
+evidence_modal_title:'New Structured Evidence',
+evidence_type_label:'Type',
+evidence_source_label:'Source',
+evidence_source_ph:'e.g. Microsoft Entra ID, signed contract...',
+evidence_method_label:'Method',
+evidence_test_label:'Test Performed',
+evidence_result_label:'Result',
+evidence_collected_by_label:'Collected By',
+evidence_collected_at_label:'Collection Date',
+evidence_save_btn:'Save',
+evidence_cancel_btn:'Cancel',
+evidence_validate_btn:'Validate',
+evidence_reject_btn:'Reject',
+evidence_withdraw_btn:'Withdraw',
+evidence_reviewer_name_prompt:'Who is performing this review?',
+evidence_reject_reason_prompt:'Reason for rejection (required):',
+evidence_withdrawn_by_prompt:'Who is withdrawing this evidence?',
+evidence_withdraw_reason_prompt:'Reason for withdrawal (required):',
+evidence_type_document:'Document',
+evidence_type_screenshot:'Screenshot',
+evidence_type_system_export:'System Export',
+evidence_type_interview:'Interview',
+evidence_type_log:'Log',
+evidence_type_other:'Other',
+evidence_method_inspection:'Inspection',
+evidence_method_observation:'Observation',
+evidence_method_reperformance:'Reperformance',
+evidence_method_inquiry:'Inquiry',
+evidence_method_analytical_procedure:'Analytical Procedure',
+evidence_status_pending:'Pending',
+evidence_status_validated:'Validated',
+evidence_status_rejected:'Rejected',
 issue_blocked_missing_evidence:'Cannot issue the report: the following controls have a compliance verdict (Yes, Partial or No) but no recorded evidence:',
 compliance_not_calculated:'No applicable controls assessed',
 template_library_btn:'📚 Library',
@@ -7927,6 +8301,40 @@ dashboard_title:'📊 Tableau de Bord Multi-Framework',
 dash_total:'Total Évalués', dash_compliant:'Conformes', partial_label:'Partiel',
 dash_noncompliant:'Non Conformes', dash_not_applicable:'Non applicable 🚫',
 na_evidence_required:'Une justification dans le champ Preuve est requise lorsqu’un contrôle est marqué Non applicable.',
+evidence_register_label:'Registre des Preuves',
+evidence_register_add_btn:'Ajouter une Preuve',
+evidence_modal_title:'Nouvelle Preuve Structurée',
+evidence_type_label:'Type',
+evidence_source_label:'Source',
+evidence_source_ph:'p. ex. Microsoft Entra ID, contrat signé...',
+evidence_method_label:'Méthode',
+evidence_test_label:'Test Effectué',
+evidence_result_label:'Résultat',
+evidence_collected_by_label:'Recueilli par',
+evidence_collected_at_label:'Date de Collecte',
+evidence_save_btn:'Enregistrer',
+evidence_cancel_btn:'Annuler',
+evidence_validate_btn:'Valider',
+evidence_reject_btn:'Rejeter',
+evidence_withdraw_btn:'Retirer',
+evidence_reviewer_name_prompt:'Qui effectue cette revue ?',
+evidence_reject_reason_prompt:'Motif du rejet (obligatoire) :',
+evidence_withdrawn_by_prompt:'Qui retire cette preuve ?',
+evidence_withdraw_reason_prompt:'Motif du retrait (obligatoire) :',
+evidence_type_document:'Document',
+evidence_type_screenshot:'Capture d\'Écran',
+evidence_type_system_export:'Export Système',
+evidence_type_interview:'Entretien',
+evidence_type_log:'Journal',
+evidence_type_other:'Autre',
+evidence_method_inspection:'Inspection',
+evidence_method_observation:'Observation',
+evidence_method_reperformance:'Réexécution',
+evidence_method_inquiry:'Demande d\'Information',
+evidence_method_analytical_procedure:'Procédure Analytique',
+evidence_status_pending:'En Attente',
+evidence_status_validated:'Validée',
+evidence_status_rejected:'Rejetée',
 issue_blocked_missing_evidence:'Impossible de publier le rapport : les contrôles suivants ont un verdict de conformité (Conforme, Partiel ou Non conforme) mais aucune preuve enregistrée :',
 compliance_not_calculated:'Aucun contrôle applicable évalué',
 dash_critical_risk:'Risques Critiques', dash_high_risk:'Risques Élevés',
@@ -8046,6 +8454,40 @@ dashboard_title:'📊 Multi-Framework Dashboard',
 dash_total:'Gesamt Bewertet', dash_compliant:'Konform', partial_label:'Teilweise',
 dash_noncompliant:'Nicht Konform', dash_not_applicable:'Nicht anwendbar 🚫',
 na_evidence_required:'Wenn eine Kontrolle als Nicht anwendbar markiert wird, ist eine Begründung im Nachweisfeld erforderlich.',
+evidence_register_label:'Nachweisregister',
+evidence_register_add_btn:'Nachweis Hinzufügen',
+evidence_modal_title:'Neuer Strukturierter Nachweis',
+evidence_type_label:'Typ',
+evidence_source_label:'Quelle',
+evidence_source_ph:'z. B. Microsoft Entra ID, unterschriebener Vertrag...',
+evidence_method_label:'Methode',
+evidence_test_label:'Durchgeführter Test',
+evidence_result_label:'Ergebnis',
+evidence_collected_by_label:'Erfasst von',
+evidence_collected_at_label:'Erfassungsdatum',
+evidence_save_btn:'Speichern',
+evidence_cancel_btn:'Abbrechen',
+evidence_validate_btn:'Validieren',
+evidence_reject_btn:'Ablehnen',
+evidence_withdraw_btn:'Zurückziehen',
+evidence_reviewer_name_prompt:'Wer führt diese Überprüfung durch?',
+evidence_reject_reason_prompt:'Grund für die Ablehnung (erforderlich):',
+evidence_withdrawn_by_prompt:'Wer zieht diesen Nachweis zurück?',
+evidence_withdraw_reason_prompt:'Grund für den Rückzug (erforderlich):',
+evidence_type_document:'Dokument',
+evidence_type_screenshot:'Bildschirmfoto',
+evidence_type_system_export:'Systemexport',
+evidence_type_interview:'Interview',
+evidence_type_log:'Protokoll',
+evidence_type_other:'Sonstiges',
+evidence_method_inspection:'Einsichtnahme',
+evidence_method_observation:'Beobachtung',
+evidence_method_reperformance:'Nachvollziehung',
+evidence_method_inquiry:'Befragung',
+evidence_method_analytical_procedure:'Analytisches Verfahren',
+evidence_status_pending:'Ausstehend',
+evidence_status_validated:'Validiert',
+evidence_status_rejected:'Abgelehnt',
 issue_blocked_missing_evidence:'Der Bericht kann nicht ausgestellt werden: Die folgenden Kontrollen haben ein Konformitätsurteil (Erfüllt, Teilweise oder Nicht erfüllt), aber keinen erfassten Nachweis:',
 compliance_not_calculated:'Keine anwendbaren Kontrollen bewertet',
 dash_critical_risk:'Kritische Risiken', dash_high_risk:'Hohe Risiken',
@@ -8165,6 +8607,40 @@ dashboard_title:'📊 Dashboard Multi-Framework',
 dash_total:'Total Avaliados', dash_compliant:'Conformes', partial_label:'Parcial',
 dash_noncompliant:'Não Conformes', dash_not_applicable:'Não aplicável 🚫',
 na_evidence_required:'É necessária uma justificativa no campo Evidência quando um controle é marcado como Não aplicável.',
+evidence_register_label:'Registro de Evidências',
+evidence_register_add_btn:'Adicionar Evidência',
+evidence_modal_title:'Nova Evidência Estruturada',
+evidence_type_label:'Tipo',
+evidence_source_label:'Fonte',
+evidence_source_ph:'ex. Microsoft Entra ID, contrato assinado...',
+evidence_method_label:'Método',
+evidence_test_label:'Teste Realizado',
+evidence_result_label:'Resultado',
+evidence_collected_by_label:'Coletado por',
+evidence_collected_at_label:'Data de Coleta',
+evidence_save_btn:'Salvar',
+evidence_cancel_btn:'Cancelar',
+evidence_validate_btn:'Validar',
+evidence_reject_btn:'Rejeitar',
+evidence_withdraw_btn:'Retirar',
+evidence_reviewer_name_prompt:'Quem está realizando esta revisão?',
+evidence_reject_reason_prompt:'Motivo da rejeição (obrigatório):',
+evidence_withdrawn_by_prompt:'Quem está retirando esta evidência?',
+evidence_withdraw_reason_prompt:'Motivo da retirada (obrigatório):',
+evidence_type_document:'Documento',
+evidence_type_screenshot:'Captura de Tela',
+evidence_type_system_export:'Exportação de Sistema',
+evidence_type_interview:'Entrevista',
+evidence_type_log:'Registro (Log)',
+evidence_type_other:'Outro',
+evidence_method_inspection:'Inspeção',
+evidence_method_observation:'Observação',
+evidence_method_reperformance:'Reexecução',
+evidence_method_inquiry:'Indagação',
+evidence_method_analytical_procedure:'Procedimento Analítico',
+evidence_status_pending:'Pendente',
+evidence_status_validated:'Validada',
+evidence_status_rejected:'Rejeitada',
 issue_blocked_missing_evidence:'Não é possível emitir o relatório: os seguintes controles têm um veredito de conformidade (Cumpre, Parcial ou Não Cumpre) mas não têm evidência registrada:',
 compliance_not_calculated:'Nenhum controle aplicável avaliado',
 dash_critical_risk:'Riscos Críticos', dash_high_risk:'Riscos Altos',
@@ -8284,6 +8760,40 @@ dashboard_title:'📊 لوحة التحكم متعددة الأطر',
 dash_total:'إجمالي المقيّمين', dash_compliant:'ممتثل', partial_label:'جزئي',
 dash_noncompliant:'غير ممتثل', dash_not_applicable:'غير قابل للتطبيق 🚫',
 na_evidence_required:'يلزم تقديم مبرر في حقل الدليل عند وضع علامة غير قابل للتطبيق على أحد الضوابط.',
+evidence_register_label:'سجل الأدلة',
+evidence_register_add_btn:'إضافة دليل',
+evidence_modal_title:'دليل منظم جديد',
+evidence_type_label:'النوع',
+evidence_source_label:'المصدر',
+evidence_source_ph:'مثال: Microsoft Entra ID، عقد موقّع...',
+evidence_method_label:'الطريقة',
+evidence_test_label:'الاختبار المُنفَّذ',
+evidence_result_label:'النتيجة',
+evidence_collected_by_label:'جُمع بواسطة',
+evidence_collected_at_label:'تاريخ الجمع',
+evidence_save_btn:'حفظ',
+evidence_cancel_btn:'إلغاء',
+evidence_validate_btn:'اعتماد',
+evidence_reject_btn:'رفض',
+evidence_withdraw_btn:'سحب',
+evidence_reviewer_name_prompt:'من يقوم بهذه المراجعة؟',
+evidence_reject_reason_prompt:'سبب الرفض (إلزامي):',
+evidence_withdrawn_by_prompt:'من يقوم بسحب هذا الدليل؟',
+evidence_withdraw_reason_prompt:'سبب السحب (إلزامي):',
+evidence_type_document:'مستند',
+evidence_type_screenshot:'لقطة شاشة',
+evidence_type_system_export:'تصدير من النظام',
+evidence_type_interview:'مقابلة',
+evidence_type_log:'سجل',
+evidence_type_other:'أخرى',
+evidence_method_inspection:'فحص',
+evidence_method_observation:'ملاحظة',
+evidence_method_reperformance:'إعادة تنفيذ',
+evidence_method_inquiry:'استفسار',
+evidence_method_analytical_procedure:'إجراء تحليلي',
+evidence_status_pending:'قيد الانتظار',
+evidence_status_validated:'معتمد',
+evidence_status_rejected:'مرفوض',
 issue_blocked_missing_evidence:'لا يمكن إصدار التقرير: الضوابط التالية لديها حكم امتثال (متوافق أو جزئي أو غير متوافق) ولكن بدون دليل مسجل:',
 compliance_not_calculated:'لم يتم تقييم أي ضوابط قابلة للتطبيق',
 dash_critical_risk:'مخاطر حرجة', dash_high_risk:'مخاطر عالية',
@@ -8403,6 +8913,40 @@ dashboard_title:'📊 多框架仪表板',
 dash_total:'总评估数', dash_compliant:'合规', partial_label:'部分',
 dash_noncompliant:'不合规', dash_not_applicable:'不适用 🚫',
 na_evidence_required:'将控制项标记为不适用时，必须在证据字段中填写理由。',
+evidence_register_label:'证据登记册',
+evidence_register_add_btn:'添加证据',
+evidence_modal_title:'新建结构化证据',
+evidence_type_label:'类型',
+evidence_source_label:'来源',
+evidence_source_ph:'例如：Microsoft Entra ID、已签署的合同...',
+evidence_method_label:'方法',
+evidence_test_label:'执行的测试',
+evidence_result_label:'结果',
+evidence_collected_by_label:'收集人',
+evidence_collected_at_label:'收集日期',
+evidence_save_btn:'保存',
+evidence_cancel_btn:'取消',
+evidence_validate_btn:'验证',
+evidence_reject_btn:'拒绝',
+evidence_withdraw_btn:'撤回',
+evidence_reviewer_name_prompt:'谁在执行此次审查？',
+evidence_reject_reason_prompt:'拒绝原因（必填）：',
+evidence_withdrawn_by_prompt:'谁在撤回此证据？',
+evidence_withdraw_reason_prompt:'撤回原因（必填）：',
+evidence_type_document:'文档',
+evidence_type_screenshot:'屏幕截图',
+evidence_type_system_export:'系统导出',
+evidence_type_interview:'访谈',
+evidence_type_log:'日志',
+evidence_type_other:'其他',
+evidence_method_inspection:'检查',
+evidence_method_observation:'观察',
+evidence_method_reperformance:'重新执行',
+evidence_method_inquiry:'询问',
+evidence_method_analytical_procedure:'分析程序',
+evidence_status_pending:'待处理',
+evidence_status_validated:'已验证',
+evidence_status_rejected:'已拒绝',
 issue_blocked_missing_evidence:'无法发布报告：以下控制项已有合规结论（符合、部分符合或不符合），但尚未记录证据：',
 compliance_not_calculated:'尚未评估适用的控制项',
 dash_critical_risk:'严重风险', dash_high_risk:'高风险',
@@ -8903,6 +9447,75 @@ window.addEventListener('beforeunload', function (e) {
     <!-- Footer -->
     <div class="p-4 border-t border-gray-700 flex justify-end">
       <button onclick="closeAIAssessment()" class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 text-sm" data-i18n="close_btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Issue #34 — Structured evidence item form. One shared modal reused
+     across every control; evidenceModalTargetWrapper (set by
+     openAddEvidenceItemModal) tracks which control's evidenceItems array
+     the Save button writes into.
+     IMPORTANT: this block is plain static HTML in the document, NOT a
+     JavaScript template literal — a ${...} expression here is never
+     evaluated; the browser just shows it as literal text. Every label
+     below is fixed Spanish text with a matching data-i18n attribute,
+     exactly like the rest of this page's static HTML — setLanguage()
+     re-translates it the same way it does everything else, on language
+     change, not by trying to interpolate JS at parse time. -->
+<div id="evidence-item-modal" class="hidden fixed inset-0 bg-black/80 z-50 items-center justify-center p-4">
+  <div class="bg-gray-800 rounded-lg border border-gray-600 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+      <h3 class="font-bold text-cyberaccent text-sm" data-i18n="evidence_modal_title">Nueva Evidencia Estructurada</h3>
+      <button type="button" onclick="closeEvidenceItemModal()" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+    </div>
+    <div class="p-5 space-y-3">
+      <div>
+        <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_type_label">Tipo</label>
+        <select id="evidence-item-type" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm">
+          <option value="document" data-i18n="evidence_type_document">Documento</option>
+          <option value="screenshot" data-i18n="evidence_type_screenshot">Captura de Pantalla</option>
+          <option value="system_export" data-i18n="evidence_type_system_export">Exportación de Sistema</option>
+          <option value="interview" data-i18n="evidence_type_interview">Entrevista</option>
+          <option value="log" data-i18n="evidence_type_log">Registro (Log)</option>
+          <option value="other" data-i18n="evidence_type_other">Otro</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_source_label">Fuente</label>
+        <input id="evidence-item-source" type="text" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm" data-i18n-placeholder="evidence_source_ph" placeholder="p. ej. Microsoft Entra ID, contrato firmado...">
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_method_label">Método</label>
+        <select id="evidence-item-method" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm">
+          <option value="inspection" data-i18n="evidence_method_inspection">Inspección</option>
+          <option value="observation" data-i18n="evidence_method_observation">Observación</option>
+          <option value="reperformance" data-i18n="evidence_method_reperformance">Reejecución</option>
+          <option value="inquiry" data-i18n="evidence_method_inquiry">Indagación</option>
+          <option value="analytical_procedure" data-i18n="evidence_method_analytical_procedure">Procedimiento Analítico</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_test_label">Prueba Realizada</label>
+        <textarea id="evidence-item-test" rows="2" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm resize-y"></textarea>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_result_label">Resultado</label>
+        <textarea id="evidence-item-result" rows="2" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm resize-y"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_collected_by_label">Recopilado por</label>
+          <input id="evidence-item-collected-by" type="text" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm">
+        </div>
+        <div>
+          <label class="text-[10px] uppercase tracking-wide text-gray-400 font-bold" data-i18n="evidence_collected_at_label">Fecha de Recopilación</label>
+          <input id="evidence-item-collected-at" type="date" class="w-full mt-1 p-2 rounded bg-gray-900 border border-gray-600 text-gray-100 text-sm">
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 px-5 py-3 border-t border-gray-700">
+      <button type="button" onclick="closeEvidenceItemModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm" data-i18n="evidence_cancel_btn">Cancelar</button>
+      <button type="button" onclick="saveEvidenceItem()" class="px-4 py-2 bg-cyberaccent hover:bg-blue-500 text-black font-bold rounded text-sm" data-i18n="evidence_save_btn">Guardar</button>
     </div>
   </div>
 </div>
