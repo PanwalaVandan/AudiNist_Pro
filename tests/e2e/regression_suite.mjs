@@ -401,6 +401,15 @@ async function main() {
     {
       const ctx = await browser.newContext();
       const page = await newPage(browser, ctx);
+      // Explicitly pin the starting language rather than relying on
+      // whatever the system default happens to be right now — this test
+      // exists to verify dynamic re-translation on switch, not to assert
+      // what the default language is (that's covered elsewhere). Uses
+      // es/en specifically because library_loaded is only translated in
+      // those two of the app's seven languages — a separate, narrower
+      // i18n completeness gap noted here rather than papered over by
+      // picking a language where the key happens to exist.
+      await page.evaluate(() => setLanguage('es'));
       await page.evaluate(() => setSuggestStatus('library_loaded'));
       const before = await page.evaluate(() => document.getElementById('suggest-status').textContent);
       await page.evaluate(() => setLanguage('en'));
@@ -648,6 +657,10 @@ async function main() {
     {
       const ctx = await browser.newContext();
       const page = await newPage(browser, ctx);
+      // Pinned explicitly rather than relying on the app's current
+      // default language — this whole section asserts on fixed Spanish
+      // alert text ("Revisado por", "Aprobado por") further down.
+      await page.evaluate(() => setLanguage('es'));
 
       await page.evaluate(() => {
         document.getElementById('empresa_auditada').value = 'Approval Co';
@@ -1552,6 +1565,47 @@ async function main() {
 
       await page.close();
       await ctx.close();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    section('19. Cross-check fix — data.findings[] carries evidenceItems (Hub handoff)');
+    // Found by an actual engine→Hub cross-check with real, engine-produced
+    // data rather than hand-built fixtures: data.findings[] (built by
+    // buildFinding(), a function that predates issue #34) never carried
+    // evidenceItems, while data.controls[] correctly did. Since the Hub's
+    // processImportedData() ALWAYS prefers data.findings over data.controls
+    // whenever the former exists and is non-empty — which it always is
+    // for any real audit with at least one non-compliant finding — every
+    // EVD-#### item was silently lost on handoff despite #34's own
+    // machinery working correctly when tested in isolation.
+    {
+      const ctx = await browser.newContext();
+      const page = await newPage(browser, ctx);
+
+      const result = await page.evaluate(() => {
+        document.getElementById('empresa_auditada').value = 'XCheck Co';
+        document.getElementById('id_informe').value = 'AUD-XCHECK-REG';
+        document.getElementById('controls').innerHTML = '';
+        addControl(false, 'Q1', 'GOV-01', 'GOV-01', 'Governance Program', '');
+        const blk = document.querySelector('.control');
+        blk.querySelector('.cumple').value = 'no';
+        blk.querySelector('.cumple').dispatchEvent(new Event('change'));
+        blk.querySelector('.evidencia').value = 'Evidencia de prueba.';
+        const btn = document.querySelector('.add-evidence-item-btn');
+        openAddEvidenceItemModal(btn);
+        document.getElementById('evidence-item-source').value = 'Test source';
+        saveEvidenceItem();
+        const data = collectAuditData();
+        return {
+          findingsCount: data.findings.length,
+          findingEvidenceItems: data.findings[0]?.evidenceItems?.map(e => e.id),
+        };
+      });
+      check('data.findings[] (the array the Hub actually prioritizes on import) now carries evidenceItems, not just data.controls[]',
+        Array.isArray(result.findingEvidenceItems) && result.findingEvidenceItems.includes('EVD-0001'),
+        `got ${JSON.stringify(result.findingEvidenceItems)}`);
+
+      await page.close(); await ctx.close();
     }
 
   } finally {

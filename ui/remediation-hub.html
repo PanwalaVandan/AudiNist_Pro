@@ -91,7 +91,7 @@ tailwind.config = {
           class="px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 border">
           <span id="role-toggle-icon"></span> <span id="role-toggle-label"></span>
         </button>
-        <select id="lang-select" onchange="setLanguage(this.value)" class="px-2 py-1.5 bg-slate-800 text-slate-200 rounded text-xs border border-slate-600 hover:border-indigo-400 transition">
+        <select id="lang-select" onchange="onLanguagePicked(this.value)" class="px-2 py-1.5 bg-slate-800 text-slate-200 rounded text-xs border border-slate-600 hover:border-indigo-400 transition">
           <option value="es"> ES</option>
           <option value="en">EN</option>
           <option value="fr">FR</option>
@@ -716,6 +716,24 @@ const I18N = {
     pdf_excluded_findings_note: '{n} hallazgo(s) excluido(s) por discrepancia aceptada por el auditor: {ids}',
     pdf_status_disputed_badge: 'Discrepante', pdf_status_open_default: 'Abierto',
 remediation_plan_title:'Plan de Remediación',
+source_audit_evidence_title:'Evidencia de Auditoría de Origen',
+evidence_type_document:'Documento',
+evidence_type_screenshot:'Captura de Pantalla',
+evidence_type_system_export:'Exportación de Sistema',
+evidence_type_interview:'Entrevista',
+evidence_type_log:'Registro (Log)',
+evidence_type_other:'Otro',
+evidence_method_inspection:'Inspección',
+evidence_method_observation:'Observación',
+evidence_method_reperformance:'Reejecución',
+evidence_method_inquiry:'Indagación',
+evidence_method_analytical_procedure:'Procedimiento Analítico',
+evidence_status_pending:'Pendiente',
+evidence_status_validated:'Validada',
+evidence_status_rejected:'Rechazada',
+evidence_source_label:'Fuente',
+evidence_collected_by_label:'Recopilado por',
+evidence_result_label:'Resultado',
 plan_client_side_gating_disclosure:'Este control de rol funciona en el navegador para guiar el flujo de trabajo; no es una autenticación ni una autorización real del servidor.',
 plan_error_not_management_role:'El plan de remediación es propiedad de la organización auditada. Solo el modo \'Cliente\' puede editarlo.',
 plan_priority_label:'Prioridad',
@@ -1034,6 +1052,24 @@ plan_error_missing_resolution:'Debes describir cómo se resolvió.',
     pdf_excluded_findings_note: '{n} finding(s) excluded by an auditor-accepted dispute: {ids}',
     pdf_status_disputed_badge: 'Disputed', pdf_status_open_default: 'Open',
 remediation_plan_title:'Remediation Plan',
+source_audit_evidence_title:'Source Audit Evidence',
+evidence_type_document:'Document',
+evidence_type_screenshot:'Screenshot',
+evidence_type_system_export:'System Export',
+evidence_type_interview:'Interview',
+evidence_type_log:'Log',
+evidence_type_other:'Other',
+evidence_method_inspection:'Inspection',
+evidence_method_observation:'Observation',
+evidence_method_reperformance:'Reperformance',
+evidence_method_inquiry:'Inquiry',
+evidence_method_analytical_procedure:'Analytical Procedure',
+evidence_status_pending:'Pending',
+evidence_status_validated:'Validated',
+evidence_status_rejected:'Rejected',
+evidence_source_label:'Source',
+evidence_collected_by_label:'Collected By',
+evidence_result_label:'Result',
 plan_client_side_gating_disclosure:'This role control works in the browser to guide the workflow; it is not real server-side authentication or authorization.',
 plan_error_not_management_role:'The remediation plan is owned by the audited organisation. Only \'Client\' mode can edit it.',
 plan_priority_label:'Priority',
@@ -1384,6 +1420,24 @@ plan_error_missing_resolution:'You must describe how it was resolved.',
                 pdf_status_disputed_badge:'Contesté',
                 pdf_status_open_default:'Ouvert',
 remediation_plan_title:'Plan de Remédiation',
+source_audit_evidence_title:'Preuve d\'Audit d\'Origine',
+evidence_type_document:'Document',
+evidence_type_screenshot:'Capture d\'Écran',
+evidence_type_system_export:'Export Système',
+evidence_type_interview:'Entretien',
+evidence_type_log:'Journal (Log)',
+evidence_type_other:'Autre',
+evidence_method_inspection:'Inspection',
+evidence_method_observation:'Observation',
+evidence_method_reperformance:'Réexécution',
+evidence_method_inquiry:'Demande de Renseignements',
+evidence_method_analytical_procedure:'Procédure Analytique',
+evidence_status_pending:'En Attente',
+evidence_status_validated:'Validée',
+evidence_status_rejected:'Rejetée',
+evidence_source_label:'Source',
+evidence_collected_by_label:'Recueilli par',
+evidence_result_label:'Résultat',
 plan_client_side_gating_disclosure:'Ce contrôle de rôle fonctionne dans le navigateur pour guider le flux de travail ; il ne s\'agit pas d\'une authentification ou d\'une autorisation réelle côté serveur.',
 plan_error_not_management_role:'Le plan de remédiation appartient à l\'organisation auditée. Seul le mode \'Client\' peut le modifier.',
 plan_priority_label:'Priorité',
@@ -1747,6 +1801,24 @@ plan_error_missing_resolution:'Vous devez décrire comment cela a été résolu.
                 pdf_status_disputed_badge:'Angefochten',
                 pdf_status_open_default:'Offen',
 remediation_plan_title:'Sanierungsplan',
+source_audit_evidence_title:'Ursprüngliche Auditnachweise',
+evidence_type_document:'Dokument',
+evidence_type_screenshot:'Bildschirmfoto',
+evidence_type_system_export:'Systemexport',
+evidence_type_interview:'Interview',
+evidence_type_log:'Protokoll',
+evidence_type_other:'Sonstiges',
+evidence_method_inspection:'Einsichtnahme',
+evidence_method_observation:'Beobachtung',
+evidence_method_reperformance:'Nachvollziehung',
+evidence_method_inquiry:'Befragung',
+evidence_method_analytical_procedure:'Analytisches Verfahren',
+evidence_status_pending:'Ausstehend',
+evidence_status_validated:'Validiert',
+evidence_status_rejected:'Abgelehnt',
+evidence_source_label:'Quelle',
+evidence_collected_by_label:'Erfasst von',
+evidence_result_label:'Ergebnis',
 plan_client_side_gating_disclosure:'Diese Rollenkontrolle funktioniert im Browser, um den Arbeitsablauf zu steuern; es handelt sich nicht um eine echte serverseitige Authentifizierung oder Autorisierung.',
 plan_error_not_management_role:'Der Sanierungsplan gehört der geprüften Organisation. Nur der \'Client\'-Modus kann ihn bearbeiten.',
 plan_priority_label:'Priorität',
@@ -2110,6 +2182,24 @@ plan_error_missing_resolution:'Sie müssen beschreiben, wie dies gelöst wurde.'
                 pdf_status_disputed_badge:'Contestado',
                 pdf_status_open_default:'Aberto',
 remediation_plan_title:'Plano de Remediação',
+source_audit_evidence_title:'Evidência de Auditoria de Origem',
+evidence_type_document:'Documento',
+evidence_type_screenshot:'Captura de Tela',
+evidence_type_system_export:'Exportação de Sistema',
+evidence_type_interview:'Entrevista',
+evidence_type_log:'Registro (Log)',
+evidence_type_other:'Outro',
+evidence_method_inspection:'Inspeção',
+evidence_method_observation:'Observação',
+evidence_method_reperformance:'Reexecução',
+evidence_method_inquiry:'Indagação',
+evidence_method_analytical_procedure:'Procedimento Analítico',
+evidence_status_pending:'Pendente',
+evidence_status_validated:'Validada',
+evidence_status_rejected:'Rejeitada',
+evidence_source_label:'Fonte',
+evidence_collected_by_label:'Coletado por',
+evidence_result_label:'Resultado',
 plan_client_side_gating_disclosure:'Este controle de função funciona no navegador para orientar o fluxo de trabalho; não é uma autenticação ou autorização real do servidor.',
 plan_error_not_management_role:'O plano de remediação pertence à organização auditada. Somente o modo \'Cliente\' pode editá-lo.',
 plan_priority_label:'Prioridade',
@@ -2473,6 +2563,24 @@ plan_error_missing_resolution:'Você deve descrever como isso foi resolvido.',
                 pdf_status_disputed_badge:'معترض عليه',
                 pdf_status_open_default:'مفتوح',
 remediation_plan_title:'خطة المعالجة',
+source_audit_evidence_title:'دليل التدقيق الأصلي',
+evidence_type_document:'مستند',
+evidence_type_screenshot:'لقطة شاشة',
+evidence_type_system_export:'تصدير من النظام',
+evidence_type_interview:'مقابلة',
+evidence_type_log:'سجل',
+evidence_type_other:'أخرى',
+evidence_method_inspection:'فحص',
+evidence_method_observation:'ملاحظة',
+evidence_method_reperformance:'إعادة تنفيذ',
+evidence_method_inquiry:'استفسار',
+evidence_method_analytical_procedure:'إجراء تحليلي',
+evidence_status_pending:'قيد الانتظار',
+evidence_status_validated:'معتمد',
+evidence_status_rejected:'مرفوض',
+evidence_source_label:'المصدر',
+evidence_collected_by_label:'جُمع بواسطة',
+evidence_result_label:'النتيجة',
 plan_client_side_gating_disclosure:'يعمل هذا التحكم في الدور داخل المتصفح لتوجيه سير العمل؛ وهو ليس مصادقة أو تفويضًا حقيقيًا من جانب الخادم.',
 plan_error_not_management_role:'خطة المعالجة مملوكة للمنظمة الخاضعة للتدقيق. يمكن فقط لوضع \'العميل\' تعديلها.',
 plan_priority_label:'الأولوية',
@@ -2836,6 +2944,24 @@ plan_error_missing_resolution:'يجب وصف كيفية حل هذا.',
                 pdf_status_disputed_badge:'有争议',
                 pdf_status_open_default:'开放',
 remediation_plan_title:'整改计划',
+source_audit_evidence_title:'来源审计证据',
+evidence_type_document:'文档',
+evidence_type_screenshot:'屏幕截图',
+evidence_type_system_export:'系统导出',
+evidence_type_interview:'访谈',
+evidence_type_log:'日志',
+evidence_type_other:'其他',
+evidence_method_inspection:'检查',
+evidence_method_observation:'观察',
+evidence_method_reperformance:'重新执行',
+evidence_method_inquiry:'询问',
+evidence_method_analytical_procedure:'分析程序',
+evidence_status_pending:'待处理',
+evidence_status_validated:'已验证',
+evidence_status_rejected:'已拒绝',
+evidence_source_label:'来源',
+evidence_collected_by_label:'收集人',
+evidence_result_label:'结果',
 plan_client_side_gating_disclosure:'此角色控制在浏览器中运行以指导工作流程；这不是真正的服务器端身份验证或授权。',
 plan_error_not_management_role:'整改计划归被审计组织所有。只有\'客户\'模式可以编辑它。',
 plan_priority_label:'优先级',
@@ -3117,6 +3243,17 @@ function setLanguage(lang) {
   if (state.selectedId) renderDetail(state.selectedId);
   renderPriorityMatrix();
   renderHistoricalEvolution();
+}
+
+// Wrapper for the language <select>'s onchange only — see the matching
+// comment in auditnist-local.html's onLanguagePicked(). Keeps
+// setLanguage() itself "pure" (apply this language, write only this
+// page's own key) so simply loading the Hub with a previously-saved
+// language never overwrites whatever another AuditSym page most recently
+// had the user explicitly choose.
+function onLanguagePicked(lang) {
+  setLanguage(lang);
+  localStorage.setItem('auditsym_shared_lang', lang);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -5969,6 +6106,39 @@ function selectFinding(id) {
   renderDetail(id);
 }
 
+// #34 follow-up: renders the audit's own structured EVD-#### evidence,
+// read-only — no buttons, no inputs. This is a frozen, immutable copy
+// carried through the handoff (per #32/#34's own acceptance criteria:
+// "the Hub consumes and displays them but never edits or overwrites
+// them") — the data was already reaching state.findings[].evidenceItems
+// and persisting/exporting correctly, but was never actually rendered
+// for a user to see. Nothing here writes back into f.evidenceItems.
+function renderSourceAuditEvidence(f) {
+  const items = f.evidenceItems || [];
+  if (!items.length) return '';
+  const label = (prefix, value) => { const key = `${prefix}_${value}`; const tr = t(key); return tr !== key ? tr : value; };
+  const statusColor = { pending: 'text-amber-400', validated: 'text-green-400', rejected: 'text-red-400' };
+  return `
+    <div class="mb-4">
+      <p class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">🔒 ${t('source_audit_evidence_title')}</p>
+      <div class="space-y-1.5">
+        ${items.map(item => `
+          <div class="bg-slate-900/50 rounded p-2 border border-slate-700/50">
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-[11px] font-bold text-slate-200">${escapeHTML(item.id)}</span>
+              <span class="text-[9px] font-bold uppercase ${statusColor[item.validationStatus] || 'text-slate-400'}">${escapeHTML(label('evidence_status', item.validationStatus))}</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5">${escapeHTML(label('evidence_type', item.type))} · ${escapeHTML(label('evidence_method', item.method))}</p>
+            ${item.source ? `<p class="text-[10px] text-slate-300 mt-1"><strong>${t('evidence_source_label')}:</strong> ${escapeHTML(item.source)}</p>` : ''}
+            ${item.result ? `<p class="text-[10px] text-slate-300 mt-0.5"><strong>${t('evidence_result_label')}:</strong> ${escapeHTML(item.result)}</p>` : ''}
+            ${item.collectedBy ? `<p class="text-[9px] text-slate-500 mt-1 italic">${escapeHTML(item.collectedBy)}${item.collectedAt ? ' · ' + escapeHTML(item.collectedAt) : ''}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderDetail(id) {
   const f = state.findings.find(x => x.id === id);
   if (!f) return;
@@ -6010,6 +6180,8 @@ function renderDetail(id) {
         <p class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">${t('description')}</p>
         <p class="text-xs text-slate-300 bg-slate-900/50 rounded p-2 leading-relaxed">${escapeHTML(f.reason || '—')}</p>
       </div>
+
+      ${renderSourceAuditEvidence(f)}
 
       <div class="mb-4">
         <div class="flex items-center justify-between mb-1">
@@ -6945,6 +7117,13 @@ function onValidationChange(id, value) {
       from: oldValue, to: 'confirmed',
       note: `${t('validation_confirmed')} — ${actor.name}${actor.role ? ' (' + actor.role + ')' : ''}`
     });
+    // Cross-check fix: symmetric case to the one fixed in
+    // onTreatmentChange() — a finding can arrive already carrying a
+    // treatment (e.g. from a re-import of a partially-completed export)
+    // but not yet confirmed. Confirming it here is the moment it becomes
+    // plan-eligible; without this call the plan wouldn't appear until
+    // something else re-ran normalizeFinding() on it.
+    ensureRemediationPlan(f);
     saveState();
     renderAll();
     renderDetail(id);
@@ -7143,6 +7322,20 @@ function onTreatmentChange(id, value, el) {
   // superseding here would fall back to an unattributed "Unknown" actor.
   if (value !== 'risk_accepted' && f.remediationPlan && oldValue !== value && !['superseded', 'cancelled'].includes(f.remediationPlan.status)) {
     createReplacementRemediationPlan(f, `Tratamiento cambiado de "${oldValue || '—'}" a "${value}".`, actor);
+  } else if (value !== 'risk_accepted' && !f.remediationPlan) {
+    // Cross-check fix: no plan existed at all yet (the normal case — the
+    // first time a treatment is ever set on this finding, right after
+    // confirming it, all in one live UI session with no reload/reimport
+    // in between). ensureRemediationPlan() always re-derives eligibility
+    // fresh from mr.treatment/mr.validationStatus rather than caching a
+    // stale "not eligible yet" result, so calling it here — now that both
+    // are correctly set — creates the plan the moment it becomes due,
+    // exactly as the design doc's transition table requires. Without
+    // this, a user confirming a finding and picking a treatment in the
+    // live UI saw the treatment saved but no plan appear at all, until
+    // something else (a reload, a re-import) happened to call
+    // normalizeFinding() again.
+    ensureRemediationPlan(f);
   }
 
   // The choice is now saved — re-lock immediately, whether or not this was
@@ -8322,7 +8515,7 @@ function generateHubPDF() {
 // INIT
 // ══════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  const savedLang = localStorage.getItem('hub_lang') || 'es';
+  const savedLang = localStorage.getItem('hub_lang') || localStorage.getItem('auditsym_shared_lang') || 'en';
   setLanguage(savedLang);
   renderRoleToggle();
   loadState();

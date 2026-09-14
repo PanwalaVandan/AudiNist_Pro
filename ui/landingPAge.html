@@ -115,6 +115,76 @@
             white-space: nowrap;
         }
 
+        /* ===== HEADER NAV (links, language selector, start button) =====
+           These three elements previously had no base rule at all — only
+           a responsive-size tweak inside a mobile media query further
+           down — so the browser fell back to its native, unstyled
+           appearance: a plain underlined link for "Empezar" and a
+           white-background OS-native <select>, both clashing hard
+           against the dark theme everywhere else on the page. Built to
+           match the same visual language as .btn-audit/.btn-secondary in
+           the hero (same blue/panel palette, border radius, transition),
+           just sized for a compact header instead of a hero CTA. */
+        .header nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .header nav a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: .85rem;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        .header nav a:hover {
+            color: var(--text);
+        }
+        .lang-selector {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background: rgba(148, 163, 184, .08) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2393a4b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 28px 7px 12px;
+            font-size: .8rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .lang-selector:hover,
+        .lang-selector:focus {
+            border-color: var(--blue);
+            outline: none;
+        }
+        .lang-selector option {
+            background: var(--panel);
+            color: var(--text);
+        }
+        .btn-start,
+        .header nav a.btn-start {
+            background: var(--blue);
+            color: #07111f;
+            border: 0;
+            border-radius: 8px;
+            padding: 9px 18px;
+            font-weight: 700;
+            font-size: .85rem;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: var(--transition);
+            box-shadow: 0 4px 16px rgba(56, 189, 248, .2);
+        }
+        .btn-start:hover,
+        .header nav a.btn-start:hover {
+            color: #07111f;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 22px rgba(56, 189, 248, .32);
+        }
+
         /* ===== HERO SPLASH ===== */
         .hero-splash {
             position: relative;
@@ -551,12 +621,14 @@
                 <nav>
             <a href="#about" data-i18n="nav_about">Sobre</a>
             <a href="#features" data-i18n="nav_features">Características</a>
-            <select class="lang-selector" id="langSelector" onchange="setLanguage(this.value)">
+            <select class="lang-selector" id="langSelector" onchange="onLanguagePicked(this.value)">
                 <option value="es">🇪🇸 ES</option>
                 <option value="en">🇬🇧 EN</option>
                 <option value="fr">🇫🇷 FR</option>
                 <option value="de">🇩🇪 DE</option>
                 <option value="pt">🇵🇹 PT</option>
+                <option value="ar">🇸🇦 AR</option>
+                <option value="zh">🇨🇳 ZH</option>
             </select>
             <a href="auditnist-local.html" class="btn-start" data-i18n="btn_start">🚀 Empezar</a>
         </nav>
@@ -1055,10 +1127,102 @@
                 footer_text: '© 2026 AuditSym — Feito com ❤️ para auditores de segurança. Todos os dados ficam locais.',
                 footer_audit: 'Auditoria',
                 footer_remediation: 'Remediação',
+            },
+            ar: {
+                nav_about: 'حول',
+                nav_features: 'المميزات',
+                btn_start: '🚀 ابدأ',
+                tagline: '<strong>مدعومة بالذكاء الاصطناعي</strong> منصة تدقيق الأمن السيبراني',
+                badge_ai: 'ذكاء اصطناعي محلي',
+                badge_secure: 'بيانات آمنة',
+                badge_langs: '7 لغات',
+                badge_opensource: 'مفتوح المصدر',
+                badge_frameworks: '4 أطر عمل',
+                btn_audit: 'التدقيق',
+                btn_audit_sub: 'تقييم NIST و ISO و CIS و COBIT',
+                btn_remediation: 'المعالجة',
+                btn_remediation_sub: 'إدارة الملاحظات وإغلاقها',
+                btn_learn: '📖 معرفة المزيد',
+                btn_learn_sub: 'اكتشف سير العمل',
+                scroll_desc: 'اكتشف كيف يعمل',
+                flow_title: 'دورة التدقيق الكاملة',
+                flow_sub: 'يغطي AuditSym دورة الحياة الكاملة: من التقييم إلى المعالجة والتحسين المستمر.',
+                flow1_title: '1. التدقيق',
+                flow1_desc: 'قيّم الضوابط مقابل NIST أو ISO أو CIS أو COBIT. حدد المخاطر، وثّق الأدلة، وأنشئ الملاحظات.',
+                flow1_link: '→ الانتقال إلى التدقيق',
+                flow2_title: '2. المعالجة',
+                flow2_desc: 'تستلم المؤسسة الملاحظات، تحدد الأولويات (مكاسب سريعة)، تعيّن المسؤولين، ترفع الأدلة وتغلق.',
+                flow2_link: '→ الانتقال إلى المعالجة',
+                flow3_title: '3. التحسين المستمر',
+                flow3_desc: 'تصور التطور عامًا بعد عام. أظهر تحسن الأمان بالبيانات التاريخية.',
+                flow3_link: '→ اكتشف المزيد',
+                features_title: 'لماذا AuditSym؟',
+                features_sub: 'مصمم للمدققين الذين يحتاجون إلى الوضوح، لا التعقيد.',
+                f1_title: 'متعدد الأطر',
+                f1_desc: 'NIST CSF 2.0 و ISO 27001 و CIS Controls v8 و COBIT 2019 — جميعها مرتبطة بإطار Secure Controls Framework.',
+                f2_title: 'ذكاء اصطناعي محلي',
+                f2_desc: 'يعمل الذكاء الاصطناعي بالكامل محليًا. لا تغادر أي بيانات جهازك. متوافق مع Ollama و OpenAI و Groq.',
+                f3_title: 'مصفوفة الأولويات',
+                f3_desc: 'المكاسب السريعة أولاً — أعلى تأثير وأسهل حلاً. ترتيب أولويات بصري لقرارات أفضل.',
+                f4_title: 'التطور التاريخي',
+                f4_desc: 'تصور تحسن الأمان عامًا بعد عام. أظهر التحسن المستمر لأصحاب المصلحة.',
+                f5_title: '7 لغات',
+                f5_desc: 'ES وEN وFR وDE وPT وAR وZH — مصمم للفرق العالمية والعملاء الدوليين.',
+                f6_title: 'المحلي أولاً',
+                f6_desc: 'تبقى جميع البيانات في متصفحك. صدّر إلى JSON، واستورد عند الحاجة. بدون سحابة، بدون اشتراك.',
+                footer_text: '© 2026 AuditSym — صُنع بـ ❤️ لمدققي الأمن. تبقى جميع البيانات محلية.',
+                footer_audit: 'التدقيق',
+                footer_remediation: 'المعالجة',
+            },
+            zh: {
+                nav_about: '关于',
+                nav_features: '功能特性',
+                btn_start: '🚀 开始使用',
+                tagline: '<strong>AI 辅助</strong>网络安全审计平台',
+                badge_ai: '本地 AI',
+                badge_secure: '数据安全',
+                badge_langs: '7 种语言',
+                badge_opensource: '开源',
+                badge_frameworks: '4 个框架',
+                btn_audit: '审计',
+                btn_audit_sub: '评估 NIST、ISO、CIS、COBIT',
+                btn_remediation: '整改',
+                btn_remediation_sub: '管理并关闭发现问题',
+                btn_learn: '📖 了解更多',
+                btn_learn_sub: '探索工作流程',
+                scroll_desc: '了解它是如何工作的',
+                flow_title: '完整的审计流程',
+                flow_sub: 'AuditSym 覆盖整个生命周期：从评估到整改再到持续改进。',
+                flow1_title: '1. 审计',
+                flow1_desc: '根据 NIST、ISO、CIS 或 COBIT 评估控制项。评定风险、记录证据并生成发现问题。',
+                flow1_link: '→ 前往审计',
+                flow2_title: '2. 整改',
+                flow2_desc: '企业接收发现问题，进行优先级排序（快速见效项），指派负责人，上传证据并关闭。',
+                flow2_link: '→ 前往整改',
+                flow3_title: '3. 持续改进',
+                flow3_desc: '逐年可视化安全态势的演变，用历史数据证明安全性的持续提升。',
+                flow3_link: '→ 了解更多',
+                features_title: '为什么选择 AuditSym？',
+                features_sub: '为需要清晰而非复杂的审计人员而构建。',
+                f1_title: '多框架支持',
+                f1_desc: 'NIST CSF 2.0、ISO 27001、CIS Controls v8、COBIT 2019 — 全部映射到统一安全控制框架（SCF）。',
+                f2_title: '本地 AI',
+                f2_desc: '所有 AI 均在本地运行，数据不会离开您的设备。兼容 Ollama、OpenAI 或 Groq。',
+                f3_title: '优先级矩阵',
+                f3_desc: '快速见效项优先 — 影响最大、最易解决的问题优先处理，可视化优先级排序帮助做出更好的决策。',
+                f4_title: '历史演变',
+                f4_desc: '逐年可视化安全态势的改善情况，向利益相关方展示持续改进的成效。',
+                f5_title: '7 种语言',
+                f5_desc: 'ES、EN、FR、DE、PT、AR、ZH — 专为全球团队和国际客户打造。',
+                f6_title: '本地优先',
+                f6_desc: '所有数据都保存在您的浏览器中。可导出为 JSON，需要时再导入。无需云端，无需订阅。',
+                footer_text: '© 2026 AuditSym — 为安全审计人员用 ❤️ 打造。所有数据均保留在本地。',
+                footer_audit: '审计',
+                footer_remediation: '整改',
             }
         };
 
-        let currentLang = 'es';
+        let currentLang = 'en';
 
         function setLanguage(lang) {
             currentLang = lang;
@@ -1078,11 +1242,22 @@
             document.getElementById('langSelector').value = lang;
         }
 
+        // Wrapper for the language <select>'s onchange only — see the
+        // matching comment in auditnist-local.html's onLanguagePicked().
+        // Keeps setLanguage() itself "pure" so simply loading the landing
+        // with a previously-saved language never overwrites whatever
+        // another AuditSym page most recently had the user explicitly
+        // choose.
+        function onLanguagePicked(lang) {
+            setLanguage(lang);
+            localStorage.setItem('auditsym_shared_lang', lang);
+        }
+
         // ────────────────────────────────────────────────
         // 🚀 INICIALIZACIÓN
         // ────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function() {
-            const savedLang = localStorage.getItem('auditsym_lang') || 'es';
+            const savedLang = localStorage.getItem('auditsym_lang') || localStorage.getItem('auditsym_shared_lang') || 'en';
             setLanguage(savedLang);
 
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {

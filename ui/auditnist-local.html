@@ -382,7 +382,7 @@ Return ONLY valid JSON with no markdown, no code fences, no text outside the JSO
       <!-- Acciones -->
       <div class="flex gap-3 items-center flex-wrap">
         <!-- Selector de idioma -->
-        <select id="lang-select" onchange="setLanguage(this.value)"
+        <select id="lang-select" onchange="onLanguagePicked(this.value)"
                 class="px-2 py-1.5 bg-gray-800/80 text-gray-100 rounded text-sm border border-gray-600 hover:border-cyberaccent transition-colors">
             <option value="es">🌐 ES — Español</option>
             <option value="en">EN — English</option>
@@ -4471,7 +4471,18 @@ function buildFinding(control, auditId) {
             treatmentOwner: '',
             treatmentOwnerRole: '',
             riskAcceptance: null
-        }
+        },
+        // Cross-check fix: buildFinding() predates issue #34's structured
+        // evidence register and was never updated when that field was
+        // added to controls — data.findings (built here) always takes
+        // priority over data.controls in the Hub's processImportedData(),
+        // so for any real audit with at least one non-compliant finding
+        // (the normal case), every EVD-#### item was silently lost on
+        // import despite #34's own machinery working correctly in
+        // isolation. Mirrors the exact same active-only filter the PDF and
+        // the Hub's own data.controls fallback path both already use — a
+        // withdrawn item must never resurface here either.
+        evidenceItems: (control.evidenceItems || []).filter(e => e.status !== 'withdrawn')
     };
 }
 
@@ -9017,6 +9028,17 @@ if (ls) ls.value = lang;
 updateSummary();
 }
 
+// Wrapper for the language <select>'s onchange only — never called during
+// page-load initialization. This is the ONE place the shared cross-page
+// key is written, so simply loading a page with a previously-saved
+// language never silently overwrites whatever another AuditSym page most
+// recently had the user explicitly choose. setLanguage() itself stays
+// "pure": apply this language, write only this page's own key.
+function onLanguagePicked(lang) {
+  setLanguage(lang);
+  localStorage.setItem('auditsym_shared_lang', lang);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 🔹 INIT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -9046,7 +9068,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  const savedLang = localStorage.getItem('auditnist_lang') || 'es';
+  const savedLang = localStorage.getItem('auditnist_lang') || localStorage.getItem('auditsym_shared_lang') || 'en';
   setLanguage(savedLang);
 
   const savedFw = localStorage.getItem('auditnist_framework') || 'nist-csf';

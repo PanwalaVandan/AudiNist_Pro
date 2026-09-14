@@ -1658,6 +1658,135 @@ async function main() {
       await page.close(); await ctx.close();
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    section('23. Cross-check fix — confirming+treating a finding in one live session creates its plan');
+    // Found by the same engine→Hub cross-check: onTreatmentChange() only
+    // ever called createReplacementRemediationPlan() when a plan ALREADY
+    // existed (the treatment-change/supersession case) — the far more
+    // common case, a finding being confirmed and treated for the FIRST
+    // TIME in a single live UI session with no reload/reimport in
+    // between, never triggered ensureRemediationPlan() at all. A user
+    // would see the treatment saved but no plan appear, until something
+    // else happened to re-run normalizeFinding() on that finding.
+    {
+      const ctx = await browser.newContext();
+      const page = await newPage(browser, ctx);
+
+      const result = await page.evaluate(() => {
+        const f = {
+          id: 'XCHECK-PLAN-CREATE', history: [],
+          managementResponse: {
+            validationStatus: null, treatment: null, disputeReason: '', disputeEvidence: '', auditorAdjudication: '',
+            responder: '', responderRole: '', responseDate: '', source: 'manual_entry', receivedVia: '', comments: '',
+            treatmentOwner: '', treatmentOwnerRole: '', riskAcceptance: null
+          }
+        };
+        normalizeFinding(f); // correctly leaves remediationPlan null — nothing decided yet
+        state.findings = [f];
+        window.prompt = () => 'Ana Torres';
+        onValidationChange('XCHECK-PLAN-CREATE', 'confirmed');
+        onTreatmentChange('XCHECK-PLAN-CREATE', 'mitigate', { value: 'mitigate' });
+        return { treatment: f.managementResponse.treatment, planExists: !!f.remediationPlan, planStatus: f.remediationPlan?.status };
+      });
+      check('Confirming a finding and setting its treatment for the first time, all in one live session, actually creates the plan',
+        result.treatment === 'mitigate' && result.planExists === true && result.planStatus === 'draft',
+        `got ${JSON.stringify(result)}`);
+
+      // Symmetric case: treatment already present (e.g. a re-import of a
+      // partially-completed export), confirmed afterward via the UI.
+      const result2 = await page.evaluate(() => {
+        const f = {
+          id: 'XCHECK-PLAN-CREATE-2', history: [],
+          managementResponse: {
+            validationStatus: null, treatment: 'mitigate', disputeReason: '', disputeEvidence: '', auditorAdjudication: '',
+            responder: '', responderRole: '', responseDate: '', source: 'manual_entry', receivedVia: '', comments: '',
+            treatmentOwner: '', treatmentOwnerRole: '', riskAcceptance: null
+          }
+        };
+        // Not calling normalizeFinding() here on purpose — simulating a
+        // finding that arrived with treatment already set but validation
+        // still pending, exactly like a real re-imported partial export.
+        state.findings = [f];
+        window.prompt = () => 'Ana Torres';
+        onValidationChange('XCHECK-PLAN-CREATE-2', 'confirmed');
+        return { planExists: !!f.remediationPlan };
+      });
+      check('The symmetric case — treatment already present, confirmed afterward via the UI — also creates the plan', result2.planExists === true);
+
+      await page.close(); await ctx.close();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    section('24. #34 follow-up — source audit evidence (EVD-####) is actually rendered read-only in the finding detail');
+    // Found during review: #34's own acceptance criteria required the Hub
+    // to "consume and display" the audit's structured evidence — the
+    // "consume" half worked (evidenceItems reached state.findings[],
+    // persisted, and exported correctly, all covered by section 11's
+    // checks), but nothing in renderDetail() ever actually displayed it.
+    // Data reaching the Hub and data being shown to a user are two
+    // different guarantees; this section covers the second one, which had
+    // no coverage at all before now.
+    {
+      const ctx = await browser.newContext();
+      const page = await newPage(browser, ctx);
+
+      const withEvidence = await page.evaluate(() => {
+        const f = {
+          id: 'F1',
+          managementResponse: { validationStatus: null, treatment: null, disputeReason: '', disputeEvidence: '', auditorAdjudication: '', responder: '', responderRole: '', responseDate: '', source: 'manual_entry', receivedVia: '', comments: '', treatmentOwner: '', treatmentOwnerRole: '', riskAcceptance: null },
+          controlCode: 'GOV-01', controlName: 'Governance Program', reason: 'x',
+          evidenceItems: [
+            { id: 'EVD-0001', type: 'document', source: 'Policy v2.1', method: 'inspection', result: 'No approval found', collectedAt: '2026-08-10', collectedBy: 'Susana Alba', validationStatus: 'validated' },
+          ]
+        };
+        normalizeFinding(f);
+        state.findings = [f]; state.activeAuditId = 'TEST-24';
+        return true;
+      });
+      await page.evaluate(() => { state.role = 'client'; renderRoleToggle(); showWorkspace(); renderAll(); selectFinding('F1'); });
+      await page.waitForTimeout(150);
+      const detailHTML = await page.evaluate(() => document.getElementById('detail-panel').innerHTML);
+
+      check(
+        'Source audit evidence is rendered read-only in the finding detail',
+        detailHTML.includes('EVD-0001') &&
+        detailHTML.includes('Policy v2.1') &&
+        !detailHTML.includes('withdrawEvidence')
+      );
+      check('The evidence block shows the result and who/when it was collected, not just the id',
+        detailHTML.includes('No approval found') && detailHTML.includes('Susana Alba'));
+      check('No editable inputs or buttons exist inside the source-evidence block specifically', (() => {
+        const marker = detailHTML.indexOf('Source Audit Evidence');
+        if (marker === -1) return false;
+        // Isolate just this block: from its own title through to the next
+        // sibling block (the AI-recommendation panel, whose "Generate"
+        // button has a stable, language-independent onclick attribute)
+        // rather than a fixed character window wide enough to accidentally
+        // reach into later fields (owner input, remediation notes
+        // textarea, upload-evidence input, action buttons) that
+        // legitimately DO have inputs/buttons of their own, just not
+        // inside THIS block.
+        const nextBlockMarker = detailHTML.indexOf('<button onclick="generateAIRecommendation', marker);
+        const block = detailHTML.slice(marker - 50, nextBlockMarker !== -1 ? nextBlockMarker : marker + 2000);
+        return !block.includes('<input') && !block.includes('<button');
+      })());
+
+      // A finding with NO evidenceItems must not render an empty/misleading block.
+      const withoutEvidence = await page.evaluate(() => {
+        const f2 = { id: 'F2', managementResponse: { validationStatus: null, treatment: null, disputeReason: '', disputeEvidence: '', auditorAdjudication: '', responder: '', responderRole: '', responseDate: '', source: 'manual_entry', receivedVia: '', comments: '', treatmentOwner: '', treatmentOwnerRole: '', riskAcceptance: null }, controlCode: 'AST-01', controlName: 'Asset Governance', reason: 'x' };
+        normalizeFinding(f2);
+        state.findings.push(f2);
+        return true;
+      });
+      await page.evaluate(() => selectFinding('F2'));
+      await page.waitForTimeout(150);
+      const detailText2 = await page.evaluate(() => document.getElementById('detail-panel').innerText);
+      check('No source-evidence block is rendered at all for a finding with no evidenceItems',
+        !detailText2.includes('Source Audit Evidence'));
+
+      await page.close(); await ctx.close();
+    }
+
   } finally {
     await browser.close();
     server.close();
