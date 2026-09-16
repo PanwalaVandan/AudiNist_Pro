@@ -23,6 +23,7 @@ Env vars (set in Railway):
 import os
 import base64
 import hmac
+import threading
 import secrets as _secrets
 
 import numpy as np
@@ -121,6 +122,32 @@ def _embed(texts: list[str]) -> np.ndarray:
     return np.asarray(out, dtype=np.float32)
 
 
+# DeepDoc parsing takes ~1s/page of GPU time, so a real compliance PDF holds a
+# single HTTP request open for minutes — long enough for Railway's edge to drop
+# it ("upstream error"). So /upload only kicks off the work and returns at once;
+# the browser polls /status until it's ready. Parse+embed run in a background
+# thread (sync httpx, so a thread rather than the event loop).
+_status: dict[str, dict] = {}  # session_id -> {state, doc_count, chunk_count, error}
+
+
+def _process_job(session_id: str, payloads: list[tuple[bytes, str]]):
+    index, chunks = _store(session_id)
+    try:
+        doc_count = 0
+        for raw, fname in payloads:
+            parsed = _parse_pdf(raw, fname)
+            if not parsed:
+                continue
+            vecs = _embed([c["text"] for c in parsed])
+            index.add(vecs)
+            chunks.extend(parsed)
+            doc_count += 1
+            _status[session_id].update(doc_count=doc_count, chunk_count=index.ntotal)
+        _status[session_id]["state"] = "ready"
+    except Exception as exc:
+        _status[session_id].update(state="error", error=str(exc))
+
+
 # ── API (contracts match the local rag/server.py so the UI is unchanged) ───────
 class QueryRequest(BaseModel):
     session_id: str
@@ -138,23 +165,18 @@ def health():
 async def upload(files: list[UploadFile] = File(...), session_id: str = Form(default="")):
     if not session_id:
         session_id = _secrets.token_urlsafe(12)
-    index, chunks = _store(session_id)
-    doc_count = 0
-    for f in files:
-        if not f.filename:
-            continue
-        raw = await f.read()
-        try:
-            parsed = _parse_pdf(raw, f.filename)
-        except Exception as exc:
-            raise HTTPException(502, f"Parser failed for {f.filename}: {exc}")
-        if not parsed:
-            continue
-        vecs = _embed([c["text"] for c in parsed])
-        index.add(vecs)
-        chunks.extend(parsed)
-        doc_count += 1
-    return {"session_id": session_id, "doc_count": doc_count, "chunk_count": index.ntotal}
+    # Read the uploaded bytes now (the file streams close once this returns),
+    # then hand them to the background thread.
+    payloads = [(await f.read(), f.filename) for f in files if f.filename]
+    _store(session_id)
+    _status[session_id] = {"state": "processing", "doc_count": 0, "chunk_count": 0, "error": None}
+    threading.Thread(target=_process_job, args=(session_id, payloads), daemon=True).start()
+    return {"session_id": session_id, "state": "processing"}
+
+
+@app.get("/status/{session_id}")
+def status(session_id: str):
+    return _status.get(session_id, {"state": "unknown"})
 
 
 @app.post("/query")
@@ -179,6 +201,7 @@ def query(req: QueryRequest):
 @app.delete("/session/{session_id}")
 def delete_session(session_id: str):
     _stores.pop(session_id, None)
+    _status.pop(session_id, None)
     return {"deleted": session_id}
 
 

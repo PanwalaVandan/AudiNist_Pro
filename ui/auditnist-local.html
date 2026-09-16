@@ -5165,9 +5165,22 @@ async function uploadDocsToRag() {
     headers: { 'X-AuditSym-Client': 'auditsym-ui' },
     body   : form
   });
-  const data = await r.json();
-  ragSessionId = data.session_id;
-  return data; // {session_id, doc_count, chunk_count}
+  const start = await r.json();
+  ragSessionId = start.session_id;
+
+  // Parsing + embedding run in the background on the server — DeepDoc is slow
+  // enough (~1s/page of GPU) that a synchronous upload would hold the request
+  // open long enough for the host's edge proxy to drop it. Poll until ready.
+  const deadline = Date.now() + 10 * 60 * 1000;   // 10-min ceiling
+  while (Date.now() < deadline) {
+    await new Promise(res => setTimeout(res, 2500));
+    const sr = await fetch(`${RAG_BASE}/status/${ragSessionId}`, { headers: { 'X-AuditSym-Client': 'auditsym-ui' } });
+    const st = await sr.json();
+    if (st.state === 'ready') return { session_id: ragSessionId, doc_count: st.doc_count, chunk_count: st.chunk_count };
+    if (st.state === 'error') throw new Error(st.error || 'Document parsing failed');
+    // 'processing' | 'unknown' → keep waiting
+  }
+  throw new Error('Document processing timed out');
 }
 
 /**
