@@ -2,6 +2,8 @@
 
 Your browser sends the PDF to our Railway server, which farms the heavy AI work out to two Modal services, keeps the results, and then answers a smart search for every control on the page. Nothing heavy runs on your laptop.
 
+> For **which service does each step and how often** (does it re-parse per query? is Modal called on a query? where does the search run?), see [`rag-cloud-architecture.md`](rag-cloud-architecture.md) and its diagram.
+
 ## Step by step
 
 1. **Upload** — In the Audit Engine you drop a PDF. The browser sends it to our Railway server (behind the login).

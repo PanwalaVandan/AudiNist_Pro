@@ -1,0 +1,105 @@
+<svg viewBox="0 0 760 620" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, sans-serif" font-size="13">
+  <title>AuditSym Auto-Analyze RAG Flow (actual deployment)</title>
+  <style>
+    .label { font-size: 12px; fill: #1a1a2e; }
+    .sub { font-size: 10.5px; fill: #555; }
+    .arrow { stroke: #8a8aa0; stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+    .sec { font-size: 11px; font-weight: 700; letter-spacing: .06em; fill: #6b6b85; }
+  </style>
+  <defs>
+    <marker id="arr" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#8a8aa0"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="28" class="sec">A — UPLOAD A DOCUMENT  (runs ONCE per document)</text>
+
+  <rect x="30" y="44" width="120" height="58" rx="8" fill="#e8f4fd" stroke="#4a9fd4" stroke-width="1.5"/>
+  <text x="90" y="68" text-anchor="middle" class="label" font-weight="600">Upload PDF</text>
+  <text x="90" y="85" text-anchor="middle" class="sub">browser / app</text>
+
+  <line x1="150" y1="73" x2="196" y2="73" class="arrow"/>
+  <text x="173" y="66" text-anchor="middle" class="sub">/upload</text>
+
+  <rect x="198" y="44" width="118" height="58" rx="8" fill="#ede7f6" stroke="#7e5bd0" stroke-width="1.5"/>
+  <text x="257" y="66" text-anchor="middle" class="label" font-weight="600">Railway</text>
+  <text x="257" y="83" text-anchor="middle" class="sub">orchestrator</text>
+  <text x="257" y="95" text-anchor="middle" class="sub">(no heavy ML)</text>
+
+  <line x1="316" y1="73" x2="360" y2="73" class="arrow"/>
+  <text x="338" y="66" text-anchor="middle" class="sub">PDF</text>
+
+  <rect x="362" y="36" width="150" height="74" rx="8" fill="#fff3e0" stroke="#f0a500" stroke-width="1.5"/>
+  <text x="437" y="58" text-anchor="middle" class="label" font-weight="600">Modal · DeepDoc</text>
+  <text x="437" y="74" text-anchor="middle" class="sub">GPU parse + chunk</text>
+  <text x="437" y="88" text-anchor="middle" class="sub">YOLOv10 + PaddleOCR</text>
+  <text x="437" y="101" text-anchor="middle" class="sub">→ chunks[] {text,page}</text>
+
+  <line x1="437" y1="110" x2="437" y2="140" class="arrow"/>
+  <text x="470" y="128" text-anchor="middle" class="sub">chunks</text>
+
+  <rect x="362" y="142" width="150" height="60" rx="8" fill="#fff3e0" stroke="#f0a500" stroke-width="1.5"/>
+  <text x="437" y="164" text-anchor="middle" class="label" font-weight="600">Modal · Embed</text>
+  <text x="437" y="180" text-anchor="middle" class="sub">all-MiniLM-L6-v2</text>
+  <text x="437" y="193" text-anchor="middle" class="sub">384-dim vectors</text>
+
+  <line x1="362" y1="172" x2="320" y2="172" class="arrow"/>
+  <text x="341" y="165" text-anchor="middle" class="sub">vectors</text>
+
+  <rect x="198" y="142" width="118" height="60" rx="8" fill="#e8f5e9" stroke="#4caf74" stroke-width="1.5"/>
+  <text x="257" y="164" text-anchor="middle" class="label" font-weight="600">FAISS index</text>
+  <text x="257" y="180" text-anchor="middle" class="sub">in memory</text>
+  <text x="257" y="193" text-anchor="middle" class="sub">ON RAILWAY</text>
+
+  <rect x="198" y="212" width="314" height="24" rx="4" fill="#e8f5e9" stroke="#4caf74" stroke-width="1"/>
+  <text x="355" y="228" text-anchor="middle" class="sub" font-weight="600">Done. The PDF is parsed once and never touched again.</text>
+
+  <line x1="30" y1="262" x2="730" y2="262" stroke="#ddd" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <text x="30" y="288" class="sec">B — ANALYZE A CONTROL  (runs per control / per query)</text>
+
+  <rect x="30" y="304" width="128" height="58" rx="8" fill="#e8f4fd" stroke="#4a9fd4" stroke-width="1.5"/>
+  <text x="94" y="326" text-anchor="middle" class="label" font-weight="600">Control query</text>
+  <text x="94" y="343" text-anchor="middle" class="sub">name + question</text>
+
+  <line x1="158" y1="333" x2="200" y2="333" class="arrow"/>
+
+  <rect x="202" y="304" width="150" height="58" rx="8" fill="#fff3e0" stroke="#f0a500" stroke-width="1.5"/>
+  <text x="277" y="322" text-anchor="middle" class="label" font-weight="600">Modal · Embed</text>
+  <text x="277" y="338" text-anchor="middle" class="sub">query → 1 vector</text>
+  <text x="277" y="351" text-anchor="middle" class="sub">(tiny · no parsing)</text>
+
+  <line x1="352" y1="333" x2="394" y2="333" class="arrow"/>
+
+  <rect x="396" y="304" width="150" height="58" rx="8" fill="#e8f5e9" stroke="#4caf74" stroke-width="1.5"/>
+  <text x="471" y="322" text-anchor="middle" class="label" font-weight="600">FAISS search</text>
+  <text x="471" y="338" text-anchor="middle" class="sub">top-5 chunks · Railway</text>
+  <text x="471" y="351" text-anchor="middle" class="sub">cosine similarity</text>
+
+  <line x1="546" y1="333" x2="588" y2="333" class="arrow"/>
+
+  <rect x="590" y="304" width="140" height="58" rx="8" fill="#fce4ec" stroke="#e05c7a" stroke-width="1.5"/>
+  <text x="660" y="322" text-anchor="middle" class="label" font-weight="600">LLM verdict</text>
+  <text x="660" y="338" text-anchor="middle" class="sub">your AI Settings</text>
+  <text x="660" y="351" text-anchor="middle" class="sub">JSON: compliance…</text>
+
+  <line x1="30" y1="386" x2="730" y2="386" stroke="#ddd" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <rect x="30" y="400" width="700" height="92" rx="8" fill="#fffde7" stroke="#f0c040" stroke-width="1.5"/>
+  <text x="380" y="423" text-anchor="middle" class="label" font-weight="700" font-size="13">Key point</text>
+  <text x="380" y="444" text-anchor="middle" class="label">The DeepDoc PARSER runs once per document, at upload. A query never re-parses the PDF.</text>
+  <text x="380" y="463" text-anchor="middle" class="label">But Modal IS still hit once per query — the Embed service turns the query into a vector.</text>
+  <text x="380" y="482" text-anchor="middle" class="label">The vector SEARCH itself runs on Railway's in-memory FAISS (lost on restart).</text>
+
+  <text x="30" y="520" class="sec">LEGEND</text>
+  <rect x="30" y="530" width="14" height="14" rx="2" fill="#e8f4fd" stroke="#4a9fd4" stroke-width="1.5"/>
+  <text x="50" y="541" class="sub">Browser / app</text>
+  <rect x="150" y="530" width="14" height="14" rx="2" fill="#ede7f6" stroke="#7e5bd0" stroke-width="1.5"/>
+  <text x="170" y="541" class="sub">Railway (orchestrator + FAISS)</text>
+  <rect x="360" y="530" width="14" height="14" rx="2" fill="#fff3e0" stroke="#f0a500" stroke-width="1.5"/>
+  <text x="380" y="541" class="sub">Modal.com (parse GPU + embed)</text>
+  <rect x="580" y="530" width="14" height="14" rx="2" fill="#e8f5e9" stroke="#4caf74" stroke-width="1.5"/>
+  <text x="600" y="541" class="sub">Vector index</text>
+  <rect x="680" y="530" width="14" height="14" rx="2" fill="#fce4ec" stroke="#e05c7a" stroke-width="1.5"/>
+  <text x="700" y="541" class="sub">LLM</text>
+</svg>
