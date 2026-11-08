@@ -5290,35 +5290,62 @@ async function aaAssessControl(ctrlEl, chunks) {
   return { context, cutoff, evidence: qualified, result, reviewFlags };
 }
 
+/** Remove any AI proposal box already on this control (so a re-run replaces it). */
+function aaClearProposalBox(ctrlEl) { ctrlEl.querySelector('.aa-proposal')?.remove(); }
+
+/** Render the non-authoritative proposal as a collapsible box ON the control itself
+ *  (inside .control-body), so it persists after the Auto Analyze modal is closed.
+ *  It is advisory only and never sets compliance/risk.
+ *  ponytail: DOM-only, not saved in the audit JSON; re-run Auto Analyze to regenerate.
+ *  Persist it in the schema only if auditors ask for proposals to survive reload. */
 function aaRenderProposal(ctrlEl, proposal) {
   const key = `proposal-${aaProposals.size}`;
   aaProposals.set(key, { ctrlEl, proposal });
-  const list = document.getElementById('aa-review-list');
-  if (!list) return;
-  const card = document.createElement('article');
-  card.className = 'rounded border border-indigo-500/50 bg-gray-800 p-3 text-left space-y-2';
-  const heading = document.createElement('h4'); heading.className = 'font-semibold text-white text-sm';
-  heading.textContent = proposal.context.control; card.appendChild(heading);
-  const summary = document.createElement('p'); summary.className = 'text-xs text-indigo-200';
-  summary.textContent = `${proposal.evidence.length ? 'AI proposal' : 'No evidence retrieved'}: ${proposal.result.preliminary_signal} · confidence ${proposal.result.confidence_band} · auditor review required`;
-  card.appendChild(summary);
+  aaClearProposalBox(ctrlEl);
+  const host = ctrlEl.querySelector('.control-body') || ctrlEl;
+  const box = document.createElement('details');
+  box.className = 'aa-proposal rounded border border-indigo-500/50 bg-gray-900/70 p-3 text-left space-y-2';
+  box.open = true;
+  const sum = document.createElement('summary');
+  sum.className = 'cursor-pointer font-semibold text-indigo-200 text-sm';
+  sum.textContent = `🤖 AI proposal — ${proposal.result.preliminary_signal} · confidence ${proposal.result.confidence_band} · auditor review required`;
+  box.appendChild(sum);
+  const note = document.createElement('p'); note.className = 'text-[11px] text-gray-500';
+  note.textContent = proposal.evidence.length
+    ? 'Advisory only — the AI does not set compliance or risk. You decide.'
+    : 'No evidence was retrieved for this control.';
+  box.appendChild(note);
   for (const [label,arr] of [['Supported',proposal.result.supported],['Missing or unverified',proposal.result.missing_or_unverified],['Limitations',proposal.result.limitations],['Review flags',proposal.reviewFlags]]) {
     if (!arr?.length) continue;
     const line = document.createElement('p'); line.className = 'text-xs text-gray-300 whitespace-pre-wrap';
-    line.textContent = `${label}: ${arr.join('; ')}`; card.appendChild(line);
+    line.textContent = `${label}: ${arr.join('; ')}`; box.appendChild(line);
   }
   for (const e of proposal.evidence.filter(e => e.actually_relevant)) {
     const line = document.createElement('p'); line.className = 'text-xs text-gray-400 whitespace-pre-wrap';
     line.textContent = `${e.id} · ${e.source} · page ${e.page ?? '?'} · ${e.evidence_role}: “${e.quote}”`;
-    card.appendChild(line);
+    box.appendChild(line);
   }
   if (proposal.evidence.some(e => e.actually_relevant)) {
     const btn = document.createElement('button'); btn.type = 'button';
     btn.className = 'px-2 py-1 bg-indigo-700 rounded text-white text-xs hover:bg-indigo-600';
     btn.textContent = 'Copy proposal to evidence draft (auditor review required)';
-    btn.addEventListener('click', () => aaCopyDraft(key)); card.appendChild(btn);
+    btn.addEventListener('click', () => aaCopyDraft(key)); box.appendChild(btn);
   }
-  list.appendChild(card);
+  host.appendChild(box);
+}
+
+/** A control whose AI response failed JSON/validation — show a manual-review box on it
+ *  so the auditor sees the AI could not produce a reviewable proposal (nothing applied). */
+function aaRenderManualReview(ctrlEl, message) {
+  aaClearProposalBox(ctrlEl);
+  const host = ctrlEl.querySelector('.control-body') || ctrlEl;
+  const box = document.createElement('div');
+  box.className = 'aa-proposal rounded border border-red-500/50 bg-gray-900/70 p-3 text-left space-y-1';
+  const h = document.createElement('p'); h.className = 'font-semibold text-red-300 text-sm';
+  h.textContent = '⚠ AI proposal requires manual review'; box.appendChild(h);
+  const p = document.createElement('p'); p.className = 'text-xs text-gray-400 whitespace-pre-wrap';
+  p.textContent = `The AI response did not meet the validation contract, so nothing was applied. Reason: ${message}`;
+  box.appendChild(p); host.appendChild(box);
 }
 
 function aaCopyDraft(key) {
@@ -5349,7 +5376,7 @@ async function runAutoAnalysis() {
 
   _aaShowState('running');
   aaProposals.clear();
-  document.getElementById('aa-review-list')?.replaceChildren();
+  document.querySelectorAll('.control .aa-proposal').forEach(el => el.remove());
   _aaSetFooter(`
     <button onclick="cancelAutoAnalysis();closeAutoAnalyze()"
       class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 text-sm"
@@ -5451,6 +5478,7 @@ async function runAutoAnalysis() {
       }
     } catch (err) {
       failures++;
+      aaRenderManualReview(ctrlEl, err.message);
       document.getElementById(logId).innerHTML =
         `❌ <span class="text-red-400">${ctrlName}</span>` +
         `<span class="text-gray-500 text-xs ml-2">requires manual review: ${escapeHTML(err.message)}</span>`;
@@ -9541,11 +9569,8 @@ window.addEventListener('beforeunload', function (e) {
         <p class="text-green-400 font-bold text-lg mb-1" data-i18n="analysis_complete">Analysis Complete</p>
         <p id="aa-done-summary" class="text-gray-400 text-sm mb-4"></p>
         <div id="aa-done-stats" class="flex justify-center gap-6 text-sm mb-4"></div>
-        <p class="text-gray-500 text-xs">Review each proposal. No compliance or risk decision was applied automatically.</p>
+        <p class="text-gray-500 text-xs">Each control now shows an <strong>AI proposal</strong> box — expand the control to review it. No compliance or risk decision was applied automatically.</p>
       </div>
-
-      <!-- AI proposals (auditor review) — populated during/after analysis -->
-      <div id="aa-review-list" class="space-y-2 mt-4"></div>
 
     </div><!-- /aa-body -->
 
