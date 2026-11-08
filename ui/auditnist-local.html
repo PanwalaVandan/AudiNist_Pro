@@ -4965,7 +4965,6 @@ const RAG_BASE = location.protocol === 'file:' ? 'http://localhost:8765' : '';
 let ragSessionId        = null;
 let pendingFiles        = [];
 let autoAnalysisRunning = false;
-let overwriteResolver   = null;
 
 /** Show the modal. If RAG server is unreachable show the offline state. */
 async function openAutoAnalyze() {
@@ -5096,69 +5095,8 @@ async function uploadDocsToRag() {
  * @param {Element} ctrlEl  — a .control DOM element
  * @param {Array}   chunks  — [{text, source, page, score}]
  */
-function buildControlAnalysisPrompt(ctrlEl, chunks) {
-  // .ctrl input stores "FW-CODE – Control Name" as its value
-  const ctrlInput = ctrlEl.querySelector('.ctrl');
-  const fwCode    = ctrlInput?.dataset?.fwCode || '';
-  const ctrlValue = ctrlInput?.value || '';
-  // Strip the fwCode prefix to get just the name (e.g. "ID.AM-01 – Asset Management" → "Asset Management")
-  const name      = fwCode && ctrlValue.includes(' – ')
-                    ? ctrlValue.split(' – ').slice(1).join(' – ').trim()
-                    : ctrlValue.trim();
-  // Question is displayed in a <p> inside .control-body
-  const question  = ctrlEl.querySelector('.control-body p')?.textContent?.trim() || '';
-
-  const excerpts = chunks.map(c =>
-    `[Source: ${c.source}, page ${c.page}, relevance: ${c.score.toFixed(2)}]\n${c.text}`
-  ).join('\n\n');
-
-  return `You are a senior cybersecurity auditor reviewing company documentation.
-
-CONTROL: ${fwCode}${fwCode && name ? ' — ' : ''}${name}
-AUDIT QUESTION: ${question}
-
-RELEVANT DOCUMENTATION EXCERPTS (retrieved via semantic search):
----
-${excerpts || 'No relevant excerpts found.'}
----
-
-Based ONLY on the excerpts above, evaluate this control.
-Return ONLY valid JSON (no markdown, no text outside the JSON):
-{
-  "compliance": "yes",
-  "risk": "high",
-  "notes": "2-3 sentence auditor observation referencing the documentation",
-  "evidence": "Specific quoted text from docs, or 'Not evidenced in provided documentation.'"
-}
-
-Rules:
-- compliance: yes = docs clearly demonstrate control is implemented; partial = some evidence but gaps remain; no = no relevant evidence
-- risk: high = critical control with no/insufficient evidence; medium = partial evidence; low = well-evidenced or minor control
-- notes: reference specific document text, never invent facts
-- evidence: quote or cite the relevant excerpt, or state absence`;
-}
-
-/** Promise-based pause — shows Skip/Overwrite buttons and waits for auditor click. */
-function promptOverwrite(logItemId) {
-  return new Promise(resolve => {
-    overwriteResolver = resolve;
-    const item = document.getElementById(logItemId);
-    if (item) {
-      item.insertAdjacentHTML('beforeend', `
-        <div id="aa-overwrite-row" class="flex gap-2 mt-1 ml-6">
-          <button onclick="overwriteResolver('skip');document.getElementById('aa-overwrite-row')?.remove()"
-            class="px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-xs hover:bg-gray-600">Skip</button>
-          <button onclick="overwriteResolver('overwrite');document.getElementById('aa-overwrite-row')?.remove()"
-            class="px-2 py-0.5 bg-indigo-700 text-white rounded text-xs hover:bg-indigo-600">Overwrite</button>
-        </div>`);
-    }
-  });
-}
-
 function cancelAutoAnalysis() {
   autoAnalysisRunning = false;
-  // Resolve any pending overwrite promise so the loop can exit
-  if (overwriteResolver) { overwriteResolver('skip'); overwriteResolver = null; }
 }
 
 /** Append a line to the running log. Returns the created element's id. */
@@ -5169,6 +5107,233 @@ function _aaLog(icon, text, id) {
     `<div id="${elId}" class="text-sm text-gray-300">${icon} ${text}</div>`);
   log.scrollTop = log.scrollHeight;
   return elId;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Auto Analysis engine (single-call MVP). Non-authoritative: produces an
+// auditor-reviewed PROPOSAL per control and NEVER sets compliance/risk.
+// Ported from the methodology-repo prototype (which used two model calls) and
+// folded to one call per the agreed MVP contract; the strict validators are
+// kept verbatim. See SUALBA/AuditSym-Methodology PR #1.
+// ───────────────────────────────────────────────────────────────────────────
+const aaProposals = new Map();
+
+function aaContext(ctrlEl) {
+  const value = id => document.getElementById(id)?.value?.trim() || '';
+  const ctrl = ctrlEl.querySelector('.ctrl');
+  const scfId = ctrl?.dataset.scfId || '';
+  // Provisional criterion source agreed for the MVP: the SCF control's own
+  // guidance text (NOT the verbatim framework requirement, which the app does
+  // not capture yet). relevant_population / sample_examined are deferred, so
+  // they stay empty and surface as review flags rather than being invented.
+  const sc = scfData?.controls?.find(c => c.id === scfId);
+  return {
+    audit_id: value('id_informe'),
+    framework: typeof currentFramework === 'string' ? currentFramework : 'UNKNOWN',
+    framework_control_id: ctrl?.dataset.fwCode || '',
+    scf_id: scfId,
+    control: ctrl?.value || '',
+    audit_question: ctrlEl.querySelector('.control-body p')?.textContent?.trim() || '',
+    criterion_text: (sc?.guidance || '').trim(),
+    criterion_version: (typeof FRAMEWORKS !== 'undefined' && FRAMEWORKS[currentFramework]?.name) || '',
+    engagement_criteria: value('eng_criteria'),
+    scope: value('eng_scope'),
+    exclusions: value('eng_exclusions'),
+    evaluated_entity: value('empresa_auditada'),
+    relevant_population: '',
+    sample_examined: '',
+    engagement_period: { from: value('eng_period_start') || null, to: value('eng_period_end') || null }
+  };
+}
+
+function aaParseJSON(reply) {
+  if (typeof reply !== 'string') throw Error('Empty model reply');
+  const parsed = JSON.parse(reply.replace(/```json|```/g, '').trim());
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw Error('Expected a JSON object');
+  if (parsed.error === 'INVALID_OUTPUT') throw Error(`Model declined: ${String(parsed.reason || '').slice(0,160)}`);
+  return parsed;
+}
+
+function aaPrepareChunks(chunks) {
+  if (!Array.isArray(chunks)) throw Error('Invalid retrieval response');
+  const valid = chunks.filter(c => c && typeof c.text === 'string' && typeof c.source === 'string');
+  const comparable = valid.every(c => typeof c.score === 'number' && Number.isFinite(c.score));
+  const ranked = comparable ? [...valid].sort((a,b) => b.score - a.score) : valid;
+  const shown = ranked.slice(0,5).map((c,i) => ({ id:`X${i+1}`, text:c.text, source:c.source,
+    page: Number.isInteger(c.page) ? c.page : null, similarity_score: comparable ? c.score : null }));
+  let cutoff = 'UNKNOWN';
+  if (comparable && valid.length > 5) cutoff = ranked[4].score - ranked[5].score < .05 ? 'AMBIGUOUS_CUTOFF' : 'SCORE_GAP_ONLY';
+  return { shown, cutoff };
+}
+
+function aaExactQuote(item, candidate) {
+  return typeof item.quote === 'string' && item.quote.length > 0 &&
+    candidate.text.includes(item.quote) && item.source === candidate.source && item.page === candidate.page;
+}
+
+function aaValidateQualification(response, shown) {
+  if (!Array.isArray(response.evidence) || response.evidence.length !== shown.length) throw Error('Incomplete evidence qualification');
+  const ids = new Set();
+  for (const e of response.evidence) {
+    const c = shown.find(x => x.id === e.id);
+    if (!c || ids.has(e.id) || !aaExactQuote(e,c)) throw Error('Citation does not match retrieved text');
+    ids.add(e.id);
+    if (typeof e.actually_relevant !== 'boolean' ||
+      !['DESIGN','IMPLEMENTATION','OPERATING_EFFECTIVENESS','UNCLEAR'].includes(e.evidence_role) ||
+      !['primary','secondary','testimonial','informal'].includes(e.source_quality) ||
+      !e.evidence_period || ![e.evidence_period.from,e.evidence_period.to].every(x => x === null || /^\d{4}-\d{2}-\d{2}$/.test(x)))
+      throw Error('Invalid evidence qualification');
+    if (e.evidence_period.from && e.evidence_period.to && e.evidence_period.from > e.evidence_period.to)
+      throw Error('Evidence period starts after it ends');
+  }
+  return response.evidence;
+}
+
+const aaDecisionFields = ['requirement','supported','partially_supported','missing_or_unverified',
+  'limitations','ambiguities','risk_observation','auditor_review_focus','additional_evidence_required','population_note','evidence_truncation_note'];
+
+function aaValidateProposal(result, evidence, context, cutoff) {
+  if (!context || !context.engagement_period || typeof context.engagement_period !== 'object') throw Error('Missing engagement period context');
+  const allowed = new Set(['requirement','supported','partially_supported','missing_or_unverified',
+    'engagement_period_alignment','population_definition_status','population_evidence_coverage','population_note',
+    'evidence_truncation_risk','evidence_truncation_note','limitations','ambiguities','preliminary_signal',
+    'authoritative','confidence_band','confidence_raw','risk_observation','additional_evidence_required',
+    'auditor_review_required','auditor_review_focus']);
+  if (Object.keys(result).some(key => !allowed.has(key))) throw Error('Unexpected assessment field');
+  const enums = {
+    preliminary_signal:['LIKELY_SUPPORTED','LIKELY_PARTIAL','LIKELY_UNSUPPORTED','INSUFFICIENT_EVIDENCE'],
+    confidence_band:['LOW','MEDIUM','HIGH'],
+    engagement_period_alignment:['ALIGNED','PARTIAL','OUTSIDE_PERIOD','UNKNOWN'],
+    population_definition_status:['DEFINED','PARTIALLY_DEFINED','UNDEFINED'],
+    population_evidence_coverage:['FULL_POPULATION_TESTED','SAMPLE_WITH_GENERALIZATION_SUPPORT','SAMPLE_ONLY_NO_GENERALIZATION','UNKNOWN'],
+    evidence_truncation_risk:['NONE','LOW','MEDIUM','HIGH']
+  };
+  if (result.authoritative !== false || result.auditor_review_required !== true) throw Error('AI attempted an authoritative conclusion');
+  for (const [key,values] of Object.entries(enums)) if (!values.includes(result[key])) throw Error(`Invalid ${key}`);
+  for (const key of ['supported','partially_supported','missing_or_unverified','limitations','ambiguities','additional_evidence_required','auditor_review_focus'])
+    if (!Array.isArray(result[key]) || !result[key].every(x => typeof x === 'string')) throw Error(`Invalid ${key}`);
+  for (const key of ['requirement','risk_observation','population_note','evidence_truncation_note'])
+    if (typeof result[key] !== 'string') throw Error(`Invalid ${key}`);
+  if (result.confidence_raw !== undefined && (!Number.isInteger(result.confidence_raw) || result.confidence_raw < 0 || result.confidence_raw > 100)) throw Error('Invalid confidence_raw');
+  const forbidden = /\b(?:Cumple|Parcial|No Cumple|Compliant|Non-Compliant)\b/i;
+  for (const field of aaDecisionFields) if (forbidden.test(JSON.stringify(result[field]))) throw Error(`Conclusion label in ${field}`);
+  if (cutoff === 'AMBIGUOUS_CUTOFF' && result.evidence_truncation_risk === 'NONE') throw Error('Truncation risk contradicts retrieval');
+  if (result.preliminary_signal === 'LIKELY_SUPPORTED') {
+    if (!context.criterion_text || !context.criterion_version || !context.scope || !context.evaluated_entity ||
+      !context.engagement_period.from || !context.engagement_period.to || !context.relevant_population ||
+      result.engagement_period_alignment !== 'ALIGNED' || result.population_definition_status === 'UNDEFINED' ||
+      !['FULL_POPULATION_TESTED','SAMPLE_WITH_GENERALIZATION_SUPPORT'].includes(result.population_evidence_coverage) ||
+      !evidence.some(e => e.actually_relevant && e.evidence_role === 'OPERATING_EFFECTIVENESS'))
+      throw Error('Positive proposal lacks required criterion, context or operating evidence');
+    if (evidence.some(e => e.actually_relevant && (
+      (e.evidence_period.to && e.evidence_period.to < context.engagement_period.from) ||
+      (e.evidence_period.from && e.evidence_period.from > context.engagement_period.to))))
+      throw Error('Positive proposal includes evidence outside the engagement period');
+  }
+  // Semantic judgments can't be established by JSON shape alone — expose them.
+  const reviewFlags = [];
+  if (!context.criterion_text) reviewFlags.push('Literal criterion/version unavailable in this application');
+  if (!context.evaluated_entity || !context.relevant_population) reviewFlags.push('Entity or population not captured');
+  if (!context.engagement_period.from || !context.engagement_period.to) reviewFlags.push('Period has an unknown bound');
+  if (cutoff === 'UNKNOWN') reviewFlags.push('Retrieval cutoff unknown: missing/incomparable scores');
+  if (result.preliminary_signal === 'LIKELY_PARTIAL') reviewFlags.push('Verify an evidenced adverse aspect; missing evidence alone is insufficient');
+  if (result.preliminary_signal === 'LIKELY_PARTIAL' && !result.supported.length) throw Error('Partial proposal has no positive aspect');
+  if (result.preliminary_signal === 'LIKELY_UNSUPPORTED') reviewFlags.push('Verify adverse evidence; absence of evidence does not prove failure');
+  if (!evidence.some(e => e.actually_relevant) && result.preliminary_signal !== 'INSUFFICIENT_EVIDENCE') throw Error('No relevant evidence supports a directional signal');
+  return reviewFlags;
+}
+
+function aaInsufficientProposal(context, cutoff, note) {
+  return { context, cutoff, evidence:[], reviewFlags:[note],
+    result:{ preliminary_signal:'INSUFFICIENT_EVIDENCE', confidence_band:'LOW', supported:[], partially_supported:[],
+      missing_or_unverified:['No excerpts retrieved from this document set'], limitations:[], ambiguities:[],
+      additional_evidence_required:['Search for evidence outside the retrieved set'], auditor_review_focus:[], risk_observation:'',
+      population_note:'', evidence_truncation_note:'No excerpts', requirement:context.audit_question || context.control || '',
+      engagement_period_alignment:'UNKNOWN', population_definition_status:'UNDEFINED', population_evidence_coverage:'UNKNOWN',
+      evidence_truncation_risk:'NONE', authoritative:false, auditor_review_required:true } };
+}
+
+function aaBuildPrompt(context, shown, cutoff) {
+  return `You are AuditSym's AI-assisted control assessment engine. Assess ONE control against retrieved evidence and output a NON-AUTHORITATIVE proposal for a human auditor — never a compliance decision.
+
+Work in two steps inside a single answer:
+STEP 1 — Qualify each excerpt: output one "evidence" item per excerpt, preserving its id/source/page; "quote" MUST be an exact, non-empty substring of that excerpt's text; unknown dates are null.
+STEP 2 — Using ONLY the excerpts you marked actually_relevant, produce the assessment.
+
+Rules:
+- The similarity_score is NOT relevance. Judge relevance yourself (actually_relevant); exclude retrieved-but-irrelevant excerpts from supported/partially_supported.
+- A policy/tool/configuration merely existing proves DESIGN or IMPLEMENTATION, never OPERATING_EFFECTIVENESS.
+- Absence of evidence is NOT non-compliance. If the relevant evidence cannot support a favorable OR adverse conclusion, preliminary_signal = INSUFFICIENT_EVIDENCE (a well-established insufficiency may still be HIGH confidence).
+- Missing evidence for some aspects is NOT LIKELY_PARTIAL. Use LIKELY_PARTIAL only for an EVIDENCED mixed state (positively supported in part AND positively unmet in part).
+- Compare each evidence period to the engagement period; flag evidence outside it rather than treating it as current.
+- If the requirement depends on a population and that population is unknown/undefined, do NOT return LIKELY_SUPPORTED — return INSUFFICIENT_EVIDENCE, but still list the aspects that ARE supported in "supported".
+- Never invent criterion, entity, population or dates; unknown stays UNKNOWN/UNDEFINED.
+- "authoritative" MUST be false and "auditor_review_required" MUST be true.
+- Never write Cumple, Parcial, No Cumple, Compliant or Non-Compliant in any field you author. This does NOT apply to evidence "quote"/"source" — reproduce those verbatim even if they contain such words.
+- Truncation signal (similarity only; says nothing about missed relevant evidence): ${cutoff}. Use it for evidence_truncation_risk.
+
+Context: ${JSON.stringify(context)}
+Excerpts: ${JSON.stringify(shown)}
+
+Return ONLY one JSON object (no markdown, no prose). If you cannot comply, return {"error":"INVALID_OUTPUT","reason":"..."}. Shape:
+{"evidence":[{"id":"X1","quote":"exact substring","source":"...","page":null,"source_quality":"primary|secondary|testimonial|informal","evidence_role":"DESIGN|IMPLEMENTATION|OPERATING_EFFECTIVENESS|UNCLEAR","actually_relevant":true,"evidence_period":{"from":null,"to":null,"coverage_note":""}}],"requirement":"one sentence from the criterion where available","supported":[],"partially_supported":[],"missing_or_unverified":[],"engagement_period_alignment":"ALIGNED|PARTIAL|OUTSIDE_PERIOD|UNKNOWN","population_definition_status":"DEFINED|PARTIALLY_DEFINED|UNDEFINED","population_evidence_coverage":"FULL_POPULATION_TESTED|SAMPLE_WITH_GENERALIZATION_SUPPORT|SAMPLE_ONLY_NO_GENERALIZATION|UNKNOWN","population_note":"","evidence_truncation_risk":"NONE|LOW|MEDIUM|HIGH","evidence_truncation_note":"","limitations":[],"ambiguities":[],"preliminary_signal":"LIKELY_SUPPORTED|LIKELY_PARTIAL|LIKELY_UNSUPPORTED|INSUFFICIENT_EVIDENCE","authoritative":false,"confidence_band":"LOW|MEDIUM|HIGH","risk_observation":"","additional_evidence_required":[],"auditor_review_required":true,"auditor_review_focus":[]}`;
+}
+
+async function aaAssessControl(ctrlEl, chunks) {
+  const context = aaContext(ctrlEl);
+  const { shown, cutoff } = aaPrepareChunks(chunks);
+  if (!shown.length) return aaInsufficientProposal(context, cutoff, 'No retrieved excerpts; this document does not evaluate the control');
+  const resp = aaParseJSON(await callAI(aaBuildPrompt(context, shown, cutoff)));
+  const qualified = aaValidateQualification(resp, shown);
+  const { evidence: _omit, ...result } = resp;
+  const reviewFlags = aaValidateProposal(result, qualified, context, cutoff);
+  return { context, cutoff, evidence: qualified, result, reviewFlags };
+}
+
+function aaRenderProposal(ctrlEl, proposal) {
+  const key = `proposal-${aaProposals.size}`;
+  aaProposals.set(key, { ctrlEl, proposal });
+  const list = document.getElementById('aa-review-list');
+  if (!list) return;
+  const card = document.createElement('article');
+  card.className = 'rounded border border-indigo-500/50 bg-gray-800 p-3 text-left space-y-2';
+  const heading = document.createElement('h4'); heading.className = 'font-semibold text-white text-sm';
+  heading.textContent = proposal.context.control; card.appendChild(heading);
+  const summary = document.createElement('p'); summary.className = 'text-xs text-indigo-200';
+  summary.textContent = `${proposal.evidence.length ? 'AI proposal' : 'No evidence retrieved'}: ${proposal.result.preliminary_signal} · confidence ${proposal.result.confidence_band} · auditor review required`;
+  card.appendChild(summary);
+  for (const [label,arr] of [['Supported',proposal.result.supported],['Missing or unverified',proposal.result.missing_or_unverified],['Limitations',proposal.result.limitations],['Review flags',proposal.reviewFlags]]) {
+    if (!arr?.length) continue;
+    const line = document.createElement('p'); line.className = 'text-xs text-gray-300 whitespace-pre-wrap';
+    line.textContent = `${label}: ${arr.join('; ')}`; card.appendChild(line);
+  }
+  for (const e of proposal.evidence.filter(e => e.actually_relevant)) {
+    const line = document.createElement('p'); line.className = 'text-xs text-gray-400 whitespace-pre-wrap';
+    line.textContent = `${e.id} · ${e.source} · page ${e.page ?? '?'} · ${e.evidence_role}: “${e.quote}”`;
+    card.appendChild(line);
+  }
+  if (proposal.evidence.some(e => e.actually_relevant)) {
+    const btn = document.createElement('button'); btn.type = 'button';
+    btn.className = 'px-2 py-1 bg-indigo-700 rounded text-white text-xs hover:bg-indigo-600';
+    btn.textContent = 'Copy proposal to evidence draft (auditor review required)';
+    btn.addEventListener('click', () => aaCopyDraft(key)); card.appendChild(btn);
+  }
+  list.appendChild(card);
+}
+
+function aaCopyDraft(key) {
+  const entry = aaProposals.get(key); if (!entry || isAuditLocked()) return;
+  if (!entry.proposal.evidence.some(e => e.actually_relevant)) return;
+  if (!document.contains(entry.ctrlEl) || JSON.stringify(aaContext(entry.ctrlEl)) !== JSON.stringify(entry.proposal.context)) {
+    alert('Control context changed since analysis. Run Auto Analyze again before copying this draft.');
+    return;
+  }
+  const evidenceField = entry.ctrlEl.querySelector('.evidencia'); if (!evidenceField) return;
+  if (evidenceField.value.trim() && !confirm('Replace existing evidence text with an AI draft?')) return;
+  const { result, evidence, reviewFlags } = entry.proposal;
+  evidenceField.value = `${AI_DRAFT_MARKER} · Auto Analysis]\n\nAI PROPOSAL: ${result.preliminary_signal} (${result.confidence_band})\nSupported: ${result.supported.join('; ') || 'None established'}\nMissing/unverified: ${result.missing_or_unverified.join('; ') || 'None listed'}\nLimitations: ${[...result.limitations,...reviewFlags].join('; ') || 'None listed'}\nSources:\n${evidence.filter(e=>e.actually_relevant).map(e=>`${e.id}: ${e.source}, p. ${e.page ?? '?'} — “${e.quote}”`).join('\n')}`;
+  evidenceField.dispatchEvent(new Event('input', { bubbles: true }));
+  isDirty = true;
 }
 
 /** Main orchestrator — called when auditor clicks 🚀 Start Analysis. */
@@ -5183,6 +5348,8 @@ async function runAutoAnalysis() {
   if (startBtn) startBtn.disabled = true;
 
   _aaShowState('running');
+  aaProposals.clear();
+  document.getElementById('aa-review-list')?.replaceChildren();
   _aaSetFooter(`
     <button onclick="cancelAutoAnalysis();closeAutoAnalyze()"
       class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 text-sm"
@@ -5216,7 +5383,7 @@ async function runAutoAnalysis() {
   }
 
   const total = ctrlEls.length;
-  let done = 0, resultCompliant = 0, resultPartial = 0, resultNonComp = 0;
+  let done = 0, proposals = 0, noEvidence = 0, failures = 0;
 
   document.getElementById('aa-progress-text').textContent = `0 / ${total}`;
 
@@ -5237,18 +5404,8 @@ async function runAutoAnalysis() {
 
     const logId = _aaLog('⬜', `<span class="text-gray-400">${ctrlName}</span>`);
 
-    // Already evaluated?
-    if (cumpleEl && cumpleEl.value && cumpleEl.value !== '') {
-      document.getElementById(logId).innerHTML =
-        `⚠️ <span class="text-yellow-400">${ctrlName}</span> — already evaluated`;
-      const action = await promptOverwrite(logId);
-      if (!autoAnalysisRunning) break;
-      if (action === 'skip') {
-        done++;
-        _aaUpdateProgress(done, total);
-        continue;
-      }
-    }
+    // Proposal-only: the auditor's existing compliance/risk decisions are never
+    // touched or overwritten, so there is no "already evaluated" gate here.
 
     // Query RAG
     let chunks = [];
@@ -5273,46 +5430,31 @@ async function runAutoAnalysis() {
       continue;
     }
 
-    // Call AI
-    let result;
+    // Generate a NON-AUTHORITATIVE proposal — never set compliance/risk.
+    // A validator failure (bad JSON or a contract breach) surfaces the control
+    // as "requires manual review" rather than silently applying a bad answer.
     try {
-      const prompt   = buildControlAnalysisPrompt(ctrlEl, chunks);
-      const rawReply = await callAI(prompt);
-      const jsonStr  = rawReply.replace(/```json|```/g, '').trim();
-      result         = JSON.parse(jsonStr);
+      const proposal = (chunks && chunks.length)
+        ? await aaAssessControl(ctrlEl, chunks)
+        : aaInsufficientProposal(aaContext(ctrlEl), 'UNKNOWN', 'No excerpts retrieved from this document set');
+      aaRenderProposal(ctrlEl, proposal);
+      if (proposal.evidence.some(e => e.actually_relevant)) {
+        proposals++;
+        document.getElementById(logId).innerHTML =
+          `📋 <span class="text-gray-200">${ctrlName}</span>` +
+          `<span class="text-gray-500 text-xs ml-2">${proposal.result.preliminary_signal} · ${proposal.result.confidence_band}</span>`;
+      } else {
+        noEvidence++;
+        document.getElementById(logId).innerHTML =
+          `⚪ <span class="text-gray-400">${ctrlName}</span>` +
+          `<span class="text-gray-500 text-xs ml-2">no relevant excerpts</span>`;
+      }
     } catch (err) {
-      _aaLog('❌', `AI error for ${ctrlName}: ${err.message}`);
+      failures++;
       document.getElementById(logId).innerHTML =
-        `❌ <span class="text-red-400">${ctrlName}</span> — AI error`;
-      done++;
-      _aaUpdateProgress(done, total);
-      continue;
+        `❌ <span class="text-red-400">${ctrlName}</span>` +
+        `<span class="text-gray-500 text-xs ml-2">requires manual review: ${escapeHTML(err.message)}</span>`;
     }
-
-    // Fill fields
-    const compliance = ['yes','no','partial'].includes(result.compliance) ? result.compliance : '';
-    const risk       = ['high','medium','low'].includes(result.risk)       ? result.risk       : '';
-
-    if (cumpleEl && compliance) {
-      cumpleEl.value = compliance;
-      cumpleEl.dispatchEvent(new Event('change'));
-    }
-    if (riesgoEl && risk) {
-      riesgoEl.value = risk;
-      riesgoEl.dispatchEvent(new Event('change'));
-    }
-    if (notesEl && result.notes)    { notesEl.value    = result.notes;    notesEl.dispatchEvent(new Event('input')); }
-    if (evidEl  && result.evidence) { evidEl.value     = result.evidence; evidEl.dispatchEvent(new Event('input')); }
-
-    // Log result
-    const icon = compliance === 'yes' ? '✅' : compliance === 'partial' ? '🟡' : '❌';
-    document.getElementById(logId).innerHTML =
-      `${icon} <span class="text-gray-200">${ctrlName}</span>` +
-      `<span class="text-gray-500 text-xs ml-2">${compliance}${risk ? ' · '+risk+' risk':''}</span>`;
-
-    if (compliance === 'yes')     resultCompliant++;
-    else if (compliance === 'partial') resultPartial++;
-    else                               resultNonComp++;
 
     done++;
     _aaUpdateProgress(done, total);
@@ -5325,11 +5467,11 @@ async function runAutoAnalysis() {
   autoAnalysisRunning = false;
   const docNames = pendingFiles.map(f => f.name).join(', ');
   document.getElementById('aa-done-summary').textContent =
-    `${done} control${done!==1?'s':''} analyzed · ${uploadInfo.doc_count} document${uploadInfo.doc_count!==1?'s':''}`;
+    `${done} control${done!==1?'s':''} queried · ${uploadInfo.doc_count} document${uploadInfo.doc_count!==1?'s':''} · AI proposals do not change compliance or risk`;
   document.getElementById('aa-done-stats').innerHTML = `
-    <span class="text-green-400">✅ ${resultCompliant} Compliant</span>
-    <span class="text-yellow-400">🟡 ${resultPartial} Partial</span>
-    <span class="text-red-400">❌ ${resultNonComp} Non-compliant</span>`;
+    <span class="text-indigo-300">📋 ${proposals} proposal${proposals!==1?'s':''}</span>
+    <span class="text-gray-400">⚪ ${noEvidence} no evidence</span>
+    <span class="text-red-400">❌ ${failures} manual review</span>`;
 
   _aaShowState('done');
   _aaSetFooter(`<button onclick="closeAutoAnalyze()"
@@ -9399,8 +9541,11 @@ window.addEventListener('beforeunload', function (e) {
         <p class="text-green-400 font-bold text-lg mb-1" data-i18n="analysis_complete">Analysis Complete</p>
         <p id="aa-done-summary" class="text-gray-400 text-sm mb-4"></p>
         <div id="aa-done-stats" class="flex justify-center gap-6 text-sm mb-4"></div>
-        <p class="text-gray-500 text-xs">Review each control and adjust as needed.</p>
+        <p class="text-gray-500 text-xs">Review each proposal. No compliance or risk decision was applied automatically.</p>
       </div>
+
+      <!-- AI proposals (auditor review) — populated during/after analysis -->
+      <div id="aa-review-list" class="space-y-2 mt-4"></div>
 
     </div><!-- /aa-body -->
 
